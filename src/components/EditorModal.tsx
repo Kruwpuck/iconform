@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState, useEffect } from 'react';
+import DOMPurify from 'dompurify';
 import { X, ImagePlus, Save } from 'lucide-react';
 import type { TemplateDef } from '@/lib/templates';
 import type { FolderType, TemplateType } from '@prisma/client';
@@ -50,10 +51,8 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
   // Seed contenteditable once on mount
   useEffect(() => {
     if (editorRef.current) {
-      // ponytail: innerHTML required for contenteditable HTML templates. Content is
-      // hardcoded template strings or DB-persisted admin edits from authenticated users only.
-      // Ceiling: add DOMPurify if this tool ever becomes multi-tenant or publicly accessible.
-      editorRef.current.innerHTML = existingDoc?.contentHtml ?? template.html;
+      const raw = existingDoc?.contentHtml ?? template.html;
+      editorRef.current.innerHTML = DOMPurify.sanitize(raw, { USE_PROFILES: { html: true } });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

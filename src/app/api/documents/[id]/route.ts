@@ -28,6 +28,8 @@ export async function PUT(req: Request, { params }: Params) {
   const { id } = await params;
   const existing = await prisma.document.findUnique({ where: { id } });
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  if (existing.createdById !== session.user?.id)
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const form = await req.formData();
   const filename = (form.get('filename') as string | null)?.trim();
@@ -95,6 +97,8 @@ export async function DELETE(_req: Request, { params }: Params) {
   const { id } = await params;
   const doc = await prisma.document.findUnique({ where: { id } });
   if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  if (doc.createdById !== session.user?.id)
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   await Promise.allSettled([
     deleteFile(doc.driveFileIdPdf),

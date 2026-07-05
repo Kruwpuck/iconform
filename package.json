@@ -13,7 +13,9 @@
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "@types/dompurify": "^3.0.5",
     "bcryptjs": "^2.4.3",
+    "dompurify": "^3.4.11",
     "googleapis": "^144.0.0",
     "html-docx-js-typescript": "^0.1.5",
     "html2pdf.js": "^0.10.2",
