@@ -29,10 +29,11 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/.bin/ ./node_modules/.bin/
-RUN chown -R nextjs:nodejs /app/node_modules/.prisma \
+RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/node_modules/.prisma \
     /app/node_modules/@prisma \
     /app/node_modules/prisma \
-    /app/node_modules/.bin
+    /app/node_modules/.bin \
+    /app/data
 USER nextjs
 EXPOSE 3000
 # ponytail: migration-at-boot fine for single instance; split into migrate job if replicas appear

@@ -22,9 +22,12 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql://iconform:${POSTGRES_PASSWORD:-iconform_dev}@iconform-db:5432/iconform
+    volumes:
+      - docdata:/app/data
     depends_on:
       iconform-db:
         condition: service_healthy
 
 volumes:
   pgdata:
+  docdata:

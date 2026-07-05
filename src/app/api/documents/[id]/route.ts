@@ -1,13 +1,9 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
-import { uploadFile, deleteFile } from '@/lib/gdrive';
+import { uploadFile, deleteFile } from '@/lib/storage';
 import { FolderType, TemplateType } from '@prisma/client';
 
-const FOLDER_IDS: Record<FolderType, string | undefined> = {
-  SURAT_TUGAS: process.env.GDRIVE_FOLDER_SURAT_TUGAS_ID,
-  BERITA_ACARA: process.env.GDRIVE_FOLDER_BERITA_ACARA_ID,
-};
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -48,21 +44,18 @@ export async function PUT(req: Request, { params }: Params) {
   if (!contentHtml) return NextResponse.json({ error: 'contentHtml required' }, { status: 400 });
   if (!pdfFile || !docxFile) return NextResponse.json({ error: 'pdf and docx files required' }, { status: 400 });
 
-  const folderId = FOLDER_IDS[folder as FolderType];
-  if (!folderId) return NextResponse.json({ error: 'Drive folder ID not configured' }, { status: 500 });
-
   const [pdfBuf, docxBuf] = await Promise.all([
     pdfFile.arrayBuffer(),
     docxFile.arrayBuffer(),
   ]);
 
   const [pdf, docx] = await Promise.all([
-    uploadFile(filename + '.pdf', 'application/pdf', Buffer.from(pdfBuf), folderId),
+    uploadFile(filename + '.pdf', 'application/pdf', Buffer.from(pdfBuf), ''),
     uploadFile(
       filename + '.docx',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       Buffer.from(docxBuf),
-      folderId
+      ''
     ),
   ]);
 

@@ -1,6 +1,6 @@
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
-import { streamFile } from '@/lib/gdrive';
+import { streamFile } from '@/lib/storage';
 import { NextResponse } from 'next/server';
 
 type Params = { params: Promise<{ id: string }> };
