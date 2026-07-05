@@ -12,20 +12,28 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate
 RUN npm run build
+RUN npx esbuild prisma/seed.ts --bundle --platform=node --format=cjs --outfile=prisma/seed.cjs --external:@prisma/client --external:.prisma/client
 
 # ---- run ----
 FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-RUN addgroup -S nodejs && adduser -S nextjs -G nodejs
+ENV PATH="/app/node_modules/.bin:$PATH"
+RUN apk add --no-cache openssl && addgroup -S nodejs && adduser -S nextjs -G nodejs
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/prisma/schema.prisma ./prisma/schema.prisma
+COPY --from=builder /app/prisma/seed.cjs ./prisma/seed.cjs
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules/.bin/ ./node_modules/.bin/
+RUN chown -R nextjs:nodejs /app/node_modules/.prisma \
+    /app/node_modules/@prisma \
+    /app/node_modules/prisma \
+    /app/node_modules/.bin
 USER nextjs
 EXPOSE 3000
 # ponytail: migration-at-boot fine for single instance; split into migrate job if replicas appear
-CMD ["sh", "-c", "npx prisma migrate deploy && npx prisma db seed && node server.js"]
+CMD ["sh", "-c", "prisma db push --accept-data-loss && node prisma/seed.cjs && node server.js"]
