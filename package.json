@@ -1,0 +1,40 @@
+{
+  "name": "iconform",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "type-check": "tsc --noEmit"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "bcryptjs": "^2.4.3",
+    "googleapis": "^144.0.0",
+    "html-docx-js-typescript": "^0.1.5",
+    "html2pdf.js": "^0.10.2",
+    "lucide-react": "^0.469.0",
+    "next": "^15.5.20",
+    "next-auth": "beta",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.2",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "autoprefixer": "^10.5.2",
+    "linkedom": "^0.18.9",
+    "postcss": "^8.5.16",
+    "prisma": "^5.22.0",
+    "tailwindcss": "^4.3.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5"
+  }
+}

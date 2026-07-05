@@ -1,0 +1,30 @@
+services:
+  iconform-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: iconform
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-iconform_dev}
+      POSTGRES_DB: iconform
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U iconform -d iconform"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  iconform-app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://iconform:${POSTGRES_PASSWORD:-iconform_dev}@iconform-db:5432/iconform
+    depends_on:
+      iconform-db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

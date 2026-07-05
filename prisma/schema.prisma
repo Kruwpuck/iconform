@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String     @id @default(cuid())
+  username     String     @unique
+  email        String?    @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime   @default(now())
+  sessions     Session[]
+  documents    Document[]
+}
+
+// Required by Auth.js adapter shape + future email auth. Unused under JWT strategy.
+// ponytail: keep, costs nothing.
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum FolderType {
+  SURAT_TUGAS
+  BERITA_ACARA
+}
+
+enum TemplateType {
+  SURAT_TUGAS
+  BA_PENGUJIAN
+  BAI
+  BAP
+  BAKL
+  UID_JABAR
+}
+
+model Document {
+  id              String       @id @default(cuid())
+  filename        String
+  folder          FolderType
+  template        TemplateType
+  contentHtml     String       @db.Text
+  logoBase64      String?      @db.Text
+  driveFileIdPdf  String
+  driveFileIdDocx String
+  webViewLinkPdf  String
+  webViewLinkDocx String
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  createdById     String
+  createdBy       User         @relation(fields: [createdById], references: [id])
+
+  @@index([folder, createdAt])
+  @@index([filename])
+}
