@@ -1,13 +1,4 @@
-import { parseHTML } from 'linkedom';
-import { TEMPLATES } from './templates';
-
-function mockDOM(fieldMap: Record<string, string>): HTMLElement {
-  const spans = Object.entries(fieldMap)
-    .map(([k, v]) => `<span data-field="${k}">${v}</span>`)
-    .join('');
-  const { document } = parseHTML(`<div>${spans}</div>`);
-  return document.querySelector('div') as unknown as HTMLElement;
-}
+import { TEMPLATES, templateById } from './templates';
 
 let passed = 0;
 let failed = 0;
@@ -22,39 +13,44 @@ function assert(label: string, actual: string | null, expected: string | null) {
   }
 }
 
-const ST = TEMPLATES.find((t) => t.id === 'SURAT_TUGAS')!;
-const BAP_T = TEMPLATES.find((t) => t.id === 'BA_PENGUJIAN')!;
-const BAI_T = TEMPLATES.find((t) => t.id === 'BAI')!;
-const BAP = TEMPLATES.find((t) => t.id === 'BAP')!;
-const BAKL = TEMPLATES.find((t) => t.id === 'BAKL')!;
-const UID = TEMPLATES.find((t) => t.id === 'UID_JABAR')!;
+const ST = templateById('SURAT_TUGAS')!;
+const BAI = templateById('BAI')!;
+const UID = templateById('UID_JABAR')!;
+const BAKL = templateById('BAKL')!;
+const PENG = templateById('BA_PENGUJIAN')!;
+const BAP = templateById('BAP')!;
 
-// SURAT_TUGAS
-assert('ST placeholder→null', ST.suggestName(mockDOM({ namaPenerima: '[Nama Staf Penerima Tugas]' })), null);
-assert('ST real name', ST.suggestName(mockDOM({ namaPenerima: 'Ahmad Fauzi' })), 'Surat_Tugas_Ahmad_Fauzi');
-assert('ST special chars', ST.suggestName(mockDOM({ namaPenerima: 'Ahmad & Fauzi' })), 'Surat_Tugas_Ahmad_Fauzi');
-assert('ST spaces→underscore', ST.suggestName(mockDOM({ namaPenerima: 'Budi Santoso' })), 'Surat_Tugas_Budi_Santoso');
+// SURAT_TUGAS — name from nomor
+assert('ST empty→null', ST.suggestName({}), null);
+assert('ST nomor', ST.suggestName({ nomor: '052101/STG/008/SUJBBICON+/2026' }), 'Surat_Tugas_052101-STG-008-SUJBBICON+-2026');
 
-// BA_PENGUJIAN
-assert('BA Pengujian placeholder→null', BAP_T.suggestName(mockDOM({ namaPerusahaan: '[Nama Perusahaan Mitra]' })), null);
-assert('BA Pengujian real', BAP_T.suggestName(mockDOM({ namaPerusahaan: 'PT. Maju Bersama' })), 'Berita Acara Hasil Pengujian_PT. Maju Bersama');
-
-// BAI
-assert('BAI placeholder→null', BAI_T.suggestName(mockDOM({ nomorSeri: '[Nomor Seri Perangkat]' })), null);
-assert('BAI real', BAI_T.suggestName(mockDOM({ nomorSeri: 'A121303002XYZ' })), 'BAI A121303002XYZ');
-
-// BAP
-assert('BAP placeholder→null', BAP.suggestName(mockDOM({ noSalesOrder: '[No Sales Order]' })), null);
-assert('BAP real', BAP.suggestName(mockDOM({ noSalesOrder: 'SO-2024-0042' })), 'BAP_SO-2024-0042');
-
-// BAKL
-assert('BAKL both placeholder→null', BAKL.suggestName(mockDOM({ nomor: '[Nomor BAKL]', namaPerusahaan: '[Nama Perusahaan]' })), null);
-assert('BAKL nomor ok company placeholder→null', BAKL.suggestName(mockDOM({ nomor: 'A311601001953', namaPerusahaan: '[Nama Perusahaan]' })), null);
-assert('BAKL both real', BAKL.suggestName(mockDOM({ nomor: 'A311601001953', namaPerusahaan: 'MSR' })), 'BAKL_A311601001953_MSR');
+// BAI — noPA preferred, serviceId fallback
+assert('BAI empty→null', BAI.suggestName({}), null);
+assert('BAI noPA', BAI.suggestName({ noPA: 'A121303002621' }), 'BAI_A121303002621');
+assert('BAI serviceId fallback', BAI.suggestName({ serviceId: '121601001669' }), 'BAI_121601001669');
 
 // UID_JABAR
-assert('UID placeholder→null', UID.suggestName(mockDOM({ nomor: '[Nomor UID JABAR]' })), null);
-assert('UID real', UID.suggestName(mockDOM({ nomor: 'A121610ABC' })), 'UID JABAR A121610ABC');
+assert('UID empty→null', UID.suggestName({}), null);
+assert('UID noPA', UID.suggestName({ noPA: 'A121601002171' }), 'BAI_UID_JABAR_A121601002171');
+assert('UID pelanggan default set', UID.fields.find((f) => f.name === 'namaPelanggan')?.default ?? null, 'PT. PLN (PERSERO) UNIT INDUK DISTRIBUSI JAWA BARAT');
+
+// BAKL
+assert('BAKL empty→null', BAKL.suggestName({}), null);
+assert('BAKL noPA', BAKL.suggestName({ noPA: 'A311601001953' }), 'BAKL_A311601001953');
+
+// BA_PENGUJIAN
+assert('Pengujian empty→null', PENG.suggestName({}), null);
+assert('Pengujian instansi', PENG.suggestName({ instansiPihakPertama: 'PT Gatra Hita Wasana' }), 'BA_Pengujian_PT_Gatra_Hita_Wasana');
+
+// BAP
+assert('BAP empty→null', BAP.suggestName({}), null);
+assert('BAP noSalesOrder', BAP.suggestName({ noSalesOrder: 'A121201000003' }), 'BAP_A121201000003');
+
+// every template must point at an existing field set + docx file name
+for (const t of TEMPLATES) {
+  assert(`${t.id} has fields`, t.fields.length > 0 ? 'ok' : 'empty', 'ok');
+  assert(`${t.id} file ends .docx`, t.file.endsWith('.docx') ? 'ok' : t.file, 'ok');
+}
 
 console.log(`\n${passed + failed} tests: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

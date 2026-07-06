@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
-import { uploadFile, deleteFile } from '@/lib/storage';
+import { uploadFile, deleteFile } from '@/lib/gdrive';
+import { templateById } from '@/lib/templates';
+import { fillDocx, docxToPdf } from '@/lib/docxgen';
 import { FolderType, TemplateType } from '@prisma/client';
 
+const FOLDER_IDS: Record<FolderType, string | undefined> = {
+  SURAT_TUGAS: process.env.GDRIVE_FOLDER_SURAT_TUGAS_ID,
+  BERITA_ACARA: process.env.GDRIVE_FOLDER_BERITA_ACARA_ID,
+};
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -37,35 +43,32 @@ export async function POST(req: Request) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const form = await req.formData();
-  const filename = (form.get('filename') as string | null)?.trim();
-  const folder = form.get('folder') as string | null;
-  const template = form.get('template') as string | null;
-  const contentHtml = form.get('contentHtml') as string | null;
-  const logoBase64 = form.get('logoBase64') as string | null;
-  const pdfFile = form.get('pdf') as File | null;
-  const docxFile = form.get('docx') as File | null;
+  const body = await req.json().catch(() => null);
+  if (!body) return NextResponse.json({ error: 'invalid JSON' }, { status: 400 });
+  const filename = (body.filename as string | undefined)?.trim();
+  const template = body.template as string | undefined;
+  const data = (body.data ?? {}) as Record<string, string>;
 
   if (!filename) return NextResponse.json({ error: 'filename required' }, { status: 400 });
-  if (!folder || !Object.values(FolderType).includes(folder as FolderType))
-    return NextResponse.json({ error: 'invalid folder' }, { status: 400 });
-  if (!template || !Object.values(TemplateType).includes(template as TemplateType))
-    return NextResponse.json({ error: 'invalid template' }, { status: 400 });
-  if (!contentHtml) return NextResponse.json({ error: 'contentHtml required' }, { status: 400 });
-  if (!pdfFile || !docxFile) return NextResponse.json({ error: 'pdf and docx files required' }, { status: 400 });
+  const def = template && Object.values(TemplateType).includes(template as TemplateType)
+    ? templateById(template)
+    : undefined;
+  if (!def) return NextResponse.json({ error: 'invalid template' }, { status: 400 });
 
-  const [pdfBuf, docxBuf] = await Promise.all([
-    pdfFile.arrayBuffer(),
-    docxFile.arrayBuffer(),
-  ]);
+  const folderId = FOLDER_IDS[def.folder];
+  if (!folderId) return NextResponse.json({ error: 'Drive folder ID not configured' }, { status: 500 });
+
+  // server-side generation from the original DOCX master — exact layout
+  const docxBuf = await fillDocx(def.file, data);
+  const pdfBuf = await docxToPdf(docxBuf);
 
   const [pdf, docx] = await Promise.all([
-    uploadFile(filename + '.pdf', 'application/pdf', Buffer.from(pdfBuf), ''),
+    uploadFile(filename + '.pdf', 'application/pdf', pdfBuf, folderId),
     uploadFile(
       filename + '.docx',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      Buffer.from(docxBuf),
-      ''
+      docxBuf,
+      folderId
     ),
   ]);
 
@@ -73,10 +76,9 @@ export async function POST(req: Request) {
     const doc = await prisma.document.create({
       data: {
         filename,
-        folder: folder as FolderType,
-        template: template as TemplateType,
-        contentHtml,
-        logoBase64,
+        folder: def.folder,
+        template: def.id,
+        contentHtml: JSON.stringify(data), // ponytail: reuse column for form data JSON
         driveFileIdPdf: pdf.id,
         driveFileIdDocx: docx.id,
         webViewLinkPdf: pdf.webViewLink,

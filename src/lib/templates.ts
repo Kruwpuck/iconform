@@ -1,252 +1,181 @@
 import { type TemplateType, type FolderType } from '@prisma/client';
 
+export type TemplateField = {
+  name: string;
+  label: string;
+  default?: string;
+  multiline?: boolean;
+};
+
 export type TemplateDef = {
   id: TemplateType;
   label: string;
   description: string;
   folder: FolderType;
-  allowLogo: boolean;
-  html: string;
-  suggestName: (root: HTMLElement) => string | null;
+  /** DOCX master under templates/docx/ — the original GDocs file with {tags} */
+  file: string;
+  fields: TemplateField[];
+  suggestName: (data: Record<string, string>) => string | null;
 };
 
-function fieldText(root: HTMLElement, name: string): string {
-  const el = root.querySelector<HTMLElement>(`[data-field="${name}"]`);
-  return el?.innerText?.trim() ?? el?.textContent?.trim() ?? '';
-}
+const clean = (v: string) => v.replace(/\//g, '-').replace(/\s+/g, '_');
 
-function isPlaceholder(v: string): boolean {
-  return !v || v.startsWith('[');
-}
+/* shared field groups */
+const HARI_TGL: TemplateField[] = [
+  { name: 'hari', label: 'Hari' },
+  { name: 'tanggal', label: 'Tanggal' },
+  { name: 'bulan', label: 'Bulan' },
+];
 
-const today = () => {
-  const d = new Date();
-  return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-};
-
-const HEADER_BLOCK = `
-  <div style="text-align:center; font-family:'Times New Roman',serif; border-bottom: 3px solid #000; padding-bottom: 8px; margin-bottom: 16px;">
-    <div style="font-weight:bold; font-size:14pt;">PLN ICON PLUS</div>
-    <div style="font-size:11pt;">Regional Jawa Barat</div>
-    <div style="font-size:10pt;">Jl. Soekarno-Hatta No.436, Bandung 40235</div>
-  </div>
-`.trim();
+const BAI_FIELDS: TemplateField[] = [
+  ...HARI_TGL,
+  { name: 'tahun', label: 'Tahun (terbilang)', default: 'Dua Ribu Dua Puluh Enam' },
+  { name: 'namaLayanan', label: 'Nama Layanan' },
+  { name: 'namaPelanggan', label: 'Nama Pelanggan' },
+  { name: 'serviceId', label: 'Service ID' },
+  { name: 'interface', label: 'Interface' },
+  { name: 'bandwidth', label: 'Bandwidth' },
+  { name: 'originating', label: 'Originating', multiline: true },
+  { name: 'terminating', label: 'Terminating', multiline: true },
+  { name: 'noPA', label: 'No PA' },
+  { name: 'namaPerangkat', label: 'Nama Perangkat' },
+  { name: 'snPerangkat', label: 'SN Perangkat' },
+  { name: 'alamatPOP', label: 'Alamat/Lokasi POP' },
+  { name: 'koordinatPOP', label: 'Koordinat POP' },
+  { name: 'namaPerangkatPOP', label: 'Nama Perangkat POP' },
+  { name: 'snPOP', label: 'SN Perangkat POP' },
+  { name: 'kanalPort', label: 'Kanal/Port' },
+  { name: 'jarakOTDR', label: 'Jarak OTDR' },
+  { name: 'namaWakil', label: 'Wakil Pelanggan — Nama' },
+  { name: 'jabatanWakil', label: 'Wakil Pelanggan — Jabatan' },
+  { name: 'alamatKantor', label: 'Wakil Pelanggan — Alamat Kantor' },
+  { name: 'kontakWakil', label: 'Wakil Pelanggan — Telp/HP, Email' },
+  { name: 'instansiPelanggan', label: 'Instansi Penandatangan' },
+  { name: 'ttdPelanggan', label: 'Nama Penandatangan Pelanggan' },
+];
 
 export const TEMPLATES: TemplateDef[] = [
   {
     id: 'SURAT_TUGAS',
     label: 'Surat Tugas',
-    description: 'Surat penugasan staf PLN Icon Plus',
+    description: 'Surat penugasan staf PLN Icon Plus SBU Regional Jawa Barat',
     folder: 'SURAT_TUGAS',
-    allowLogo: false,
-    html: `
-<div style="font-family:'Times New Roman',serif; font-size:12pt; color:#000; line-height:1.6;">
-  ${HEADER_BLOCK}
-  <div style="text-align:center; margin-bottom:16px;">
-    <div style="font-weight:bold; text-decoration:underline; font-size:13pt;">SURAT TUGAS</div>
-    <div>Nomor: <span data-field="nomor" class="bg-amber-100 px-1 rounded font-bold">[Nomor Surat]</span></div>
-  </div>
-  <p>Yang bertanda tangan di bawah ini, Pimpinan PLN Icon Plus Regional Jawa Barat, dengan ini menugaskan kepada:</p>
-  <table style="margin-left:32px; margin-bottom:12px; line-height:2;">
-    <tr><td style="width:160px;">Nama</td><td>:</td><td><span data-field="namaPenerima" class="bg-amber-100 px-1 rounded font-bold">[Nama Staf Penerima Tugas]</span></td></tr>
-    <tr><td>Jabatan</td><td>:</td><td><span data-field="jabatan" class="bg-amber-100 px-1 rounded font-bold">[Jabatan]</span></td></tr>
-    <tr><td>Unit</td><td>:</td><td><span data-field="unit" class="bg-amber-100 px-1 rounded font-bold">[Unit/Bagian]</span></td></tr>
-  </table>
-  <p>Untuk melaksanakan tugas: <span data-field="tugasPokok" class="bg-amber-100 px-1 rounded font-bold">[Uraian Tugas]</span></p>
-  <p>Pada tanggal: <span data-field="tanggalTugas" class="bg-amber-100 px-1 rounded font-bold">[Tanggal Pelaksanaan]</span></p>
-  <p>Di: <span data-field="lokasi" class="bg-amber-100 px-1 rounded font-bold">[Lokasi Pelaksanaan]</span></p>
-  <p>Demikian surat tugas ini dibuat untuk dilaksanakan dengan penuh tanggung jawab.</p>
-  <div style="margin-top:32px; text-align:right;">
-    <div>Bandung, ${today()}</div>
-    <div>Pimpinan Regional Jawa Barat</div>
-    <div style="margin-top:64px;"><span data-field="namaPenandatangan" class="bg-amber-100 px-1 rounded font-bold">[Nama Penandatangan]</span></div>
-    <div>NIP: <span data-field="nipPenandatangan" class="bg-amber-100 px-1 rounded font-bold">[NIP]</span></div>
-  </div>
-</div>`,
-    suggestName: (root) => {
-      const v = fieldText(root, 'namaPenerima');
-      if (isPlaceholder(v)) return null;
-      return 'Surat_Tugas_' + v.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '').replace(/_+/g, '_');
-    },
+    file: 'SURAT_TUGAS.docx',
+    fields: [
+      { name: 'nomor', label: 'Nomor Surat' },
+      { name: 'nama1', label: 'Nama Petugas 1' },
+      { name: 'nama2', label: 'Nama Petugas 2' },
+      { name: 'nama3', label: 'Nama Petugas 3' },
+      { name: 'jabatanPenerima', label: 'Jabatan Petugas', default: 'Teknisi' },
+      { name: 'uraianTugas', label: 'Uraian Tugas', multiline: true },
+      { name: 'tanggalTugas', label: 'Tanggal Tugas' },
+      { name: 'lokasi', label: 'Lokasi' },
+      { name: 'tanggalSurat', label: 'Tanggal Surat' },
+    ],
+    suggestName: (d) => (d.nomor ? 'Surat_Tugas_' + clean(d.nomor) : null),
   },
-
+  {
+    id: 'BAI',
+    label: 'BAI (BAI-BAA)',
+    description: 'Berita Acara Instalasi – Aktivasi',
+    folder: 'BERITA_ACARA',
+    file: 'BAI.docx',
+    fields: BAI_FIELDS,
+    suggestName: (d) => (d.noPA ? 'BAI_' + clean(d.noPA) : d.serviceId ? 'BAI_' + clean(d.serviceId) : null),
+  },
+  {
+    id: 'UID_JABAR',
+    label: 'BAI UID JABAR',
+    description: 'BAI-BAA untuk PT PLN (Persero) Unit Induk Distribusi Jawa Barat',
+    folder: 'BERITA_ACARA',
+    file: 'BAI.docx', // same master; pelanggan pre-filled below
+    fields: BAI_FIELDS.map((f) =>
+      f.name === 'namaPelanggan' || f.name === 'instansiPelanggan'
+        ? { ...f, default: 'PT. PLN (PERSERO) UNIT INDUK DISTRIBUSI JAWA BARAT' }
+        : f
+    ),
+    suggestName: (d) => (d.noPA ? 'BAI_UID_JABAR_' + clean(d.noPA) : null),
+  },
+  {
+    id: 'BAKL',
+    label: 'BAKL',
+    description: 'Berita Acara Kendala Lapangan',
+    folder: 'BERITA_ACARA',
+    file: 'BAKL.docx',
+    fields: [
+      ...HARI_TGL,
+      { name: 'namaLayanan', label: 'Nama Layanan' },
+      { name: 'noPA', label: 'No PA' },
+      { name: 'wakilPihakPertama', label: 'PLN Icon Plus — Diwakili Oleh', default: 'Nadhif Ahmad Dhialdien' },
+      { name: 'jabatanPihakPertama', label: 'PLN Icon Plus — Jabatan', default: 'Engineer Pembangunan SBU Regional Jabar' },
+      { name: 'instansiPihakKedua', label: 'Pihak Kedua — Instansi' },
+      { name: 'wakilPihakKedua', label: 'Pihak Kedua — Diwakili Oleh' },
+      { name: 'jabatanPihakKedua', label: 'Pihak Kedua — Jabatan' },
+      { name: 'alamatPihakKedua', label: 'Pihak Kedua — Alamat Kantor' },
+      { name: 'telpPihakKedua', label: 'Pihak Kedua — Telepon & Fax' },
+      { name: 'kendala1', label: 'Kendala 1', multiline: true },
+      { name: 'kendala2', label: 'Kendala 2', multiline: true },
+      { name: 'kendala3', label: 'Kendala 3', multiline: true },
+      { name: 'lamaTertunda', label: 'Lama Tertunda (hari)' },
+      { name: 'tglMulai', label: 'Tertunda Sejak Tanggal' },
+      { name: 'tglSelesai', label: 'Tertunda Sampai Tanggal' },
+      { name: 'kota', label: 'Kota', default: 'Bandung' },
+      { name: 'tanggalBA', label: 'Tanggal Berita Acara' },
+    ],
+    suggestName: (d) => (d.noPA ? 'BAKL_' + clean(d.noPA) : null),
+  },
   {
     id: 'BA_PENGUJIAN',
     label: 'BA Pengujian',
     description: 'Berita Acara Hasil Pengujian',
     folder: 'BERITA_ACARA',
-    allowLogo: true,
-    html: `
-<div style="font-family:'Times New Roman',serif; font-size:12pt; color:#000; line-height:1.6;">
-  ${HEADER_BLOCK}
-  <div style="text-align:center; margin-bottom:16px;">
-    <div style="font-weight:bold; text-decoration:underline; font-size:13pt;">BERITA ACARA HASIL PENGUJIAN</div>
-    <div>Nomor: <span data-field="nomor" class="bg-amber-100 px-1 rounded font-bold">[Nomor BA]</span></div>
-  </div>
-  <p>Pada hari ini, <span data-field="hariTanggal" class="bg-amber-100 px-1 rounded font-bold">[Hari dan Tanggal]</span>, telah dilaksanakan pengujian terhadap:</p>
-  <table style="margin-left:32px; margin-bottom:12px; line-height:2;">
-    <tr><td style="width:200px;">Nama Perusahaan</td><td>:</td><td><span data-field="namaPerusahaan" class="bg-amber-100 px-1 rounded font-bold">[Nama Perusahaan Mitra]</span></td></tr>
-    <tr><td>Jenis Pekerjaan</td><td>:</td><td><span data-field="jenisPekerjaan" class="bg-amber-100 px-1 rounded font-bold">[Jenis Pekerjaan]</span></td></tr>
-    <tr><td>Lokasi Pengujian</td><td>:</td><td><span data-field="lokasiPengujian" class="bg-amber-100 px-1 rounded font-bold">[Lokasi]</span></td></tr>
-  </table>
-  <p>Hasil pengujian menyatakan bahwa pekerjaan tersebut <span data-field="hasilPengujian" class="bg-amber-100 px-1 rounded font-bold">[LULUS/TIDAK LULUS]</span> dengan keterangan:</p>
-  <p><span data-field="keterangan" class="bg-amber-100 px-1 rounded font-bold">[Keterangan Hasil Pengujian]</span></p>
-  <p>Demikian berita acara ini dibuat dengan sebenarnya untuk dipergunakan sebagaimana mestinya.</p>
-  <div style="margin-top:32px; display:flex; justify-content:space-between;">
-    <div style="text-align:center;">
-      <div>Pihak Perusahaan</div>
-      <div style="margin-top:64px;"><span data-field="namaMitra" class="bg-amber-100 px-1 rounded font-bold">[Nama Mitra]</span></div>
-    </div>
-    <div style="text-align:center;">
-      <div>PLN Icon Plus Regional Jawa Barat</div>
-      <div style="margin-top:64px;"><span data-field="namaPetugas" class="bg-amber-100 px-1 rounded font-bold">[Nama Petugas]</span></div>
-    </div>
-  </div>
-</div>`,
-    suggestName: (root) => {
-      const v = fieldText(root, 'namaPerusahaan');
-      if (isPlaceholder(v)) return null;
-      return 'Berita Acara Hasil Pengujian_' + v;
-    },
+    file: 'BA_PENGUJIAN.docx',
+    fields: [
+      ...HARI_TGL,
+      { name: 'tahun', label: 'Tahun (terbilang + tanggal)', default: 'Dua Ribu Dua Puluh Enam' },
+      { name: 'namaPihakPertama', label: 'Pihak Pertama — Nama' },
+      { name: 'jabatanPihakPertama', label: 'Pihak Pertama — Jabatan' },
+      { name: 'instansiPihakPertama', label: 'Pihak Pertama — Instansi' },
+      { name: 'alamatPihakPertama', label: 'Pihak Pertama — Berkedudukan', multiline: true },
+      { name: 'namaPihakKedua', label: 'Pihak Kedua (PLN Icon Plus) — Nama' },
+      { name: 'jabatanPihakKedua', label: 'Pihak Kedua — Jabatan' },
+    ],
+    suggestName: (d) =>
+      d.instansiPihakPertama ? 'BA_Pengujian_' + clean(d.instansiPihakPertama) : null,
   },
-
-  {
-    id: 'BAI',
-    label: 'BAI',
-    description: 'Berita Acara Instalasi',
-    folder: 'BERITA_ACARA',
-    allowLogo: true,
-    html: `
-<div style="font-family:'Times New Roman',serif; font-size:12pt; color:#000; line-height:1.6;">
-  ${HEADER_BLOCK}
-  <div style="text-align:center; margin-bottom:16px;">
-    <div style="font-weight:bold; text-decoration:underline; font-size:13pt;">BERITA ACARA INSTALASI</div>
-  </div>
-  <p>Pada hari ini telah dilakukan instalasi perangkat dengan nomor seri: <span data-field="nomorSeri" class="bg-amber-100 px-1 rounded font-bold">[Nomor Seri Perangkat]</span></p>
-  <table style="margin-left:32px; margin-bottom:12px; line-height:2;">
-    <tr><td style="width:200px;">Nama Perangkat</td><td>:</td><td><span data-field="namaPerangkat" class="bg-amber-100 px-1 rounded font-bold">[Nama Perangkat]</span></td></tr>
-    <tr><td>Lokasi Instalasi</td><td>:</td><td><span data-field="lokasiInstalasi" class="bg-amber-100 px-1 rounded font-bold">[Lokasi Instalasi]</span></td></tr>
-    <tr><td>Tanggal Instalasi</td><td>:</td><td><span data-field="tanggalInstalasi" class="bg-amber-100 px-1 rounded font-bold">[Tanggal Instalasi]</span></td></tr>
-    <tr><td>Nama Pelaksana</td><td>:</td><td><span data-field="namaPelaksana" class="bg-amber-100 px-1 rounded font-bold">[Nama Pelaksana Instalasi]</span></td></tr>
-  </table>
-  <p>Instalasi telah selesai dilaksanakan dan perangkat berfungsi dengan baik.</p>
-  <div style="margin-top:32px; text-align:right;">
-    <div>Bandung, ${today()}</div>
-    <div style="margin-top:64px;"><span data-field="namaPenandatangan" class="bg-amber-100 px-1 rounded font-bold">[Nama Penandatangan]</span></div>
-  </div>
-</div>`,
-    suggestName: (root) => {
-      const v = fieldText(root, 'nomorSeri');
-      if (isPlaceholder(v)) return null;
-      return 'BAI ' + v;
-    },
-  },
-
   {
     id: 'BAP',
     label: 'BAP',
-    description: 'Berita Acara Penyelesaian',
+    description: 'Berita Acara Pemakaian',
     folder: 'BERITA_ACARA',
-    allowLogo: true,
-    html: `
-<div style="font-family:'Times New Roman',serif; font-size:12pt; color:#000; line-height:1.6;">
-  ${HEADER_BLOCK}
-  <div style="text-align:center; margin-bottom:16px;">
-    <div style="font-weight:bold; text-decoration:underline; font-size:13pt;">BERITA ACARA PENYELESAIAN</div>
-  </div>
-  <p>Pada hari ini telah selesai dilaksanakan pekerjaan berdasarkan:</p>
-  <table style="margin-left:32px; margin-bottom:12px; line-height:2;">
-    <tr><td style="width:200px;">No. Sales Order</td><td>:</td><td><span data-field="noSalesOrder" class="bg-amber-100 px-1 rounded font-bold">[No Sales Order]</span></td></tr>
-    <tr><td>Nama Pekerjaan</td><td>:</td><td><span data-field="namaPekerjaan" class="bg-amber-100 px-1 rounded font-bold">[Nama Pekerjaan]</span></td></tr>
-    <tr><td>Nama Pelanggan</td><td>:</td><td><span data-field="namaPelanggan" class="bg-amber-100 px-1 rounded font-bold">[Nama Pelanggan]</span></td></tr>
-    <tr><td>Lokasi Pekerjaan</td><td>:</td><td><span data-field="lokasiPekerjaan" class="bg-amber-100 px-1 rounded font-bold">[Lokasi]</span></td></tr>
-    <tr><td>Tanggal Selesai</td><td>:</td><td><span data-field="tanggalSelesai" class="bg-amber-100 px-1 rounded font-bold">[Tanggal Selesai]</span></td></tr>
-  </table>
-  <p>Pekerjaan telah diselesaikan sesuai dengan spesifikasi yang disepakati.</p>
-  <div style="margin-top:32px; display:flex; justify-content:space-between;">
-    <div style="text-align:center;">
-      <div>Pelanggan</div>
-      <div style="margin-top:64px;"><span data-field="namaPelangganTandaTangan" class="bg-amber-100 px-1 rounded font-bold">[Nama Pelanggan]</span></div>
-    </div>
-    <div style="text-align:center;">
-      <div>PLN Icon Plus Regional Jawa Barat</div>
-      <div style="margin-top:64px;"><span data-field="namaPetugas" class="bg-amber-100 px-1 rounded font-bold">[Nama Petugas]</span></div>
-    </div>
-  </div>
-</div>`,
-    suggestName: (root) => {
-      const v = fieldText(root, 'noSalesOrder');
-      if (isPlaceholder(v)) return null;
-      return 'BAP_' + v;
-    },
-  },
-
-  {
-    id: 'BAKL',
-    label: 'BAKL',
-    description: 'Berita Acara Kelaikan',
-    folder: 'BERITA_ACARA',
-    allowLogo: true,
-    html: `
-<div style="font-family:'Times New Roman',serif; font-size:12pt; color:#000; line-height:1.6;">
-  ${HEADER_BLOCK}
-  <div style="text-align:center; margin-bottom:16px;">
-    <div style="font-weight:bold; text-decoration:underline; font-size:13pt;">BERITA ACARA KELAIKAN</div>
-    <div>Nomor: <span data-field="nomor" class="bg-amber-100 px-1 rounded font-bold">[Nomor BAKL]</span></div>
-  </div>
-  <p>Pada hari ini telah dilakukan pemeriksaan kelaikan terhadap instalasi milik:</p>
-  <table style="margin-left:32px; margin-bottom:12px; line-height:2;">
-    <tr><td style="width:200px;">Nama Perusahaan</td><td>:</td><td><span data-field="namaPerusahaan" class="bg-amber-100 px-1 rounded font-bold">[Nama Perusahaan]</span></td></tr>
-    <tr><td>Alamat</td><td>:</td><td><span data-field="alamat" class="bg-amber-100 px-1 rounded font-bold">[Alamat]</span></td></tr>
-    <tr><td>Jenis Instalasi</td><td>:</td><td><span data-field="jenisInstalasi" class="bg-amber-100 px-1 rounded font-bold">[Jenis Instalasi]</span></td></tr>
-    <tr><td>Daya Tersambung</td><td>:</td><td><span data-field="dayaTersambung" class="bg-amber-100 px-1 rounded font-bold">[Daya Tersambung]</span></td></tr>
-  </table>
-  <p>Berdasarkan hasil pemeriksaan, instalasi tersebut dinyatakan <span data-field="statusKelaikan" class="bg-amber-100 px-1 rounded font-bold">[LAIK/TIDAK LAIK]</span> operasi.</p>
-  <div style="margin-top:32px; text-align:right;">
-    <div>Bandung, ${today()}</div>
-    <div>Pemeriksa</div>
-    <div style="margin-top:64px;"><span data-field="namaPemeriksa" class="bg-amber-100 px-1 rounded font-bold">[Nama Pemeriksa]</span></div>
-  </div>
-</div>`,
-    suggestName: (root) => {
-      const nomor = fieldText(root, 'nomor');
-      const perusahaan = fieldText(root, 'namaPerusahaan');
-      if (isPlaceholder(nomor) || isPlaceholder(perusahaan)) return null;
-      return 'BAKL_' + nomor + '_' + perusahaan;
-    },
-  },
-
-  {
-    id: 'UID_JABAR',
-    label: 'UID JABAR',
-    description: 'Surat UID Jawa Barat',
-    folder: 'BERITA_ACARA',
-    allowLogo: true,
-    html: `
-<div style="font-family:'Times New Roman',serif; font-size:12pt; color:#000; line-height:1.6;">
-  ${HEADER_BLOCK}
-  <div style="text-align:center; margin-bottom:16px;">
-    <div style="font-weight:bold; text-decoration:underline; font-size:13pt;">SURAT UID JAWA BARAT</div>
-    <div>Nomor: <span data-field="nomor" class="bg-amber-100 px-1 rounded font-bold">[Nomor UID JABAR]</span></div>
-  </div>
-  <p>Sehubungan dengan pelaksanaan kegiatan di wilayah Jawa Barat, bersama ini kami sampaikan hal-hal sebagai berikut:</p>
-  <table style="margin-left:32px; margin-bottom:12px; line-height:2;">
-    <tr><td style="width:200px;">Perihal</td><td>:</td><td><span data-field="perihal" class="bg-amber-100 px-1 rounded font-bold">[Perihal Surat]</span></td></tr>
-    <tr><td>Ditujukan Kepada</td><td>:</td><td><span data-field="tujuan" class="bg-amber-100 px-1 rounded font-bold">[Nama/Instansi Tujuan]</span></td></tr>
-    <tr><td>Tanggal</td><td>:</td><td><span data-field="tanggalSurat" class="bg-amber-100 px-1 rounded font-bold">[Tanggal Surat]</span></td></tr>
-  </table>
-  <p><span data-field="isiSurat" class="bg-amber-100 px-1 rounded font-bold">[Isi Surat]</span></p>
-  <p>Demikian disampaikan, atas perhatian dan kerjasamanya kami ucapkan terima kasih.</p>
-  <div style="margin-top:32px; text-align:right;">
-    <div>Bandung, ${today()}</div>
-    <div>Pimpinan UID Jawa Barat</div>
-    <div style="margin-top:64px;"><span data-field="namaPimpinan" class="bg-amber-100 px-1 rounded font-bold">[Nama Pimpinan]</span></div>
-  </div>
-</div>`,
-    suggestName: (root) => {
-      const v = fieldText(root, 'nomor');
-      if (isPlaceholder(v)) return null;
-      return 'UID JABAR ' + v;
-    },
+    file: 'BAP.docx',
+    fields: [
+      { name: 'tanggal', label: 'Tanggal' },
+      { name: 'bulan', label: 'Bulan' },
+      { name: 'tahun', label: 'Tahun (terbilang)', default: 'Dua Ribu Dua Puluh Enam' },
+      { name: 'namaLayanan', label: 'Nama Layanan' },
+      { name: 'noSalesOrder', label: 'No Sales Order' },
+      { name: 'namaPelanggan', label: 'Nama Pelanggan' },
+      { name: 'alamatOri', label: 'Alamat/Lokasi Originating' },
+      { name: 'perangkatOri', label: 'Perangkat & S/N Originating' },
+      { name: 'kanalOri', label: 'Kanal/Port Originating' },
+      { name: 'alamatTer', label: 'Alamat/Lokasi Terminating' },
+      { name: 'perangkatTer', label: 'Perangkat & S/N Terminating' },
+      { name: 'kanalTer', label: 'Kanal/Port Terminating' },
+      { name: 'kegunaan', label: 'Kegunaan' },
+      { name: 'statusOri', label: 'Status Integrasi Originating' },
+      { name: 'catatanOri', label: 'Catatan Originating' },
+      { name: 'statusTer', label: 'Status Integrasi Terminating' },
+      { name: 'catatanTer', label: 'Catatan Terminating' },
+      { name: 'jarakOTDR', label: 'Jarak OTDR' },
+      { name: 'instansiPelanggan', label: 'Instansi Penandatangan' },
+      { name: 'ttdPelanggan', label: 'Nama Penandatangan Pelanggan' },
+      { name: 'tanggalBA', label: 'Tanggal Berita Acara' },
+    ],
+    suggestName: (d) => (d.noSalesOrder ? 'BAP_' + clean(d.noSalesOrder) : null),
   },
 ];
+
+export function templateById(id: string): TemplateDef | undefined {
+  return TEMPLATES.find((t) => t.id === id);
+}

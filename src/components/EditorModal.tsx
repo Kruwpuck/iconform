@@ -1,16 +1,14 @@
 'use client';
 
 import { useRef, useState, useEffect } from 'react';
-import DOMPurify from 'dompurify';
-import { X, ImagePlus, Save } from 'lucide-react';
+import { X, Eye, Save } from 'lucide-react';
 import type { TemplateDef } from '@/lib/templates';
 import type { FolderType, TemplateType } from '@prisma/client';
 
 export type ExistingDoc = {
   id: string;
   filename: string;
-  contentHtml: string;
-  logoBase64?: string | null;
+  contentHtml: string; // JSON form data
   template: TemplateType;
   folder: FolderType;
 };
@@ -22,46 +20,46 @@ type Props = {
   onSaved: () => void;
 };
 
-function exportShell(html: string) {
-  return `<div style="font-family:'Times New Roman',serif;font-size:12pt;color:#000;padding:30px">${html}</div>`;
-}
-
-async function generateBlobs(contentHtml: string): Promise<{ pdfBlob: Blob; docxBlob: Blob }> {
-  const shell = exportShell(contentHtml);
-  const [{ default: html2pdf }, { asBlob }] = await Promise.all([
-    // ponytail: dynamic import required — html2pdf.js touches window at module eval
-    import('html2pdf.js'),
-    import('html-docx-js-typescript'),
-  ]);
-  const pdfBlob: Blob = await html2pdf()
-    .set({ margin: 10, jsPDF: { format: 'a4' } })
-    .from(shell)
-    .outputPdf('blob');
-  const docxBlob = (await asBlob(shell)) as Blob;
-  return { pdfBlob, docxBlob };
+function initialData(template: TemplateDef, existingDoc?: ExistingDoc): Record<string, string> {
+  let saved: Record<string, string> = {};
+  if (existingDoc) {
+    try {
+      saved = JSON.parse(existingDoc.contentHtml);
+    } catch {
+      saved = {};
+    }
+  }
+  const out: Record<string, string> = {};
+  for (const f of template.fields) {
+    out[f.name] = saved[f.name] ?? f.default ?? '';
+  }
+  return out;
 }
 
 export default function EditorModal({ template, existingDoc, onClose, onSaved }: Props) {
-  const editorRef = useRef<HTMLDivElement>(null);
   const dirtyRef = useRef(!!existingDoc);
+  const [data, setData] = useState<Record<string, string>>(() => initialData(template, existingDoc));
   const [filename, setFilename] = useState(existingDoc?.filename ?? '');
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewing, setPreviewing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  // Seed contenteditable once on mount
   useEffect(() => {
-    if (editorRef.current) {
-      const raw = existingDoc?.contentHtml ?? template.html;
-      editorRef.current.innerHTML = DOMPurify.sanitize(raw, { USE_PROFILES: { html: true } });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
-  function handleEditorInput() {
-    if (!dirtyRef.current && editorRef.current) {
-      const suggested = template.suggestName(editorRef.current);
-      if (suggested) setFilename(suggested);
-    }
+  function setField(name: string, value: string) {
+    setData((prev) => {
+      const next = { ...prev, [name]: value };
+      if (!dirtyRef.current) {
+        const suggested = template.suggestName(next);
+        if (suggested) setFilename(suggested);
+      }
+      return next;
+    });
   }
 
   function handleFilenameChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -69,55 +67,47 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
     setFilename(e.target.value);
   }
 
-  function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !editorRef.current) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const src = ev.target?.result as string;
-      const editor = editorRef.current!;
-      let slot = editor.querySelector<HTMLElement>('[data-logo-slot]');
-      if (!slot) {
-        slot = document.createElement('div');
-        slot.setAttribute('data-logo-slot', '');
-        slot.style.marginBottom = '8px';
-        editor.insertBefore(slot, editor.firstChild);
+  async function handlePreview() {
+    setPreviewing(true);
+    setError('');
+    try {
+      const res = await fetch('/api/documents/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ template: template.id, data }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? `HTTP ${res.status}`);
       }
-      slot.innerHTML = `<img src="${src}" style="max-height:64px;" alt="Logo Mitra" />`;
-    };
-    reader.readAsDataURL(file);
+      const blob = await res.blob();
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(URL.createObjectURL(blob));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Gagal membuat preview.');
+    } finally {
+      setPreviewing(false);
+    }
   }
 
   async function handleSave() {
     const name = filename.trim();
     if (!name) { setError('Nama file tidak boleh kosong.'); return; }
-    if (!editorRef.current) return;
 
     setSaving(true);
     setError('');
     try {
-      const contentHtml = editorRef.current.innerHTML;
-      const logoSlot = editorRef.current.querySelector<HTMLImageElement>('[data-logo-slot] img');
-      const logoBase64 = logoSlot?.src?.startsWith('data:') ? logoSlot.src : null;
-
-      const { pdfBlob, docxBlob } = await generateBlobs(contentHtml);
-
-      const form = new FormData();
-      form.append('filename', name);
-      form.append('folder', template.folder);
-      form.append('template', template.id);
-      form.append('contentHtml', contentHtml);
-      if (logoBase64) form.append('logoBase64', logoBase64);
-      form.append('pdf', new File([pdfBlob], name + '.pdf', { type: 'application/pdf' }));
-      form.append('docx', new File([docxBlob], name + '.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }));
-
       const url = existingDoc ? `/api/documents/${existingDoc.id}` : '/api/documents';
       const method = existingDoc ? 'PUT' : 'POST';
-      const res = await fetch(url, { method, body: form });
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: name, template: template.id, data }),
+      });
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error ?? `HTTP ${res.status}`);
+        const resData = await res.json().catch(() => ({}));
+        throw new Error(resData.error ?? `HTTP ${res.status}`);
       }
 
       onSaved();
@@ -132,7 +122,7 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl">
+      <div className="bg-white rounded-xl w-full max-w-5xl max-h-[92vh] overflow-y-auto shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <div>
@@ -148,85 +138,96 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
           </button>
         </div>
 
-        <div className="p-6 space-y-4">
-          {/* Logo upload (Berita Acara only) */}
-          {template.allowLogo && (
-            <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-slate-600 cursor-pointer w-fit">
-                <ImagePlus size={16} />
-                Upload Logo Mitra
+        <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Form */}
+          <div className="space-y-3">
+            {template.fields.map((f) => (
+              <div key={f.name}>
+                <label className="block text-xs font-medium text-slate-600 mb-0.5">{f.label}</label>
+                {f.multiline ? (
+                  <textarea
+                    value={data[f.name] ?? ''}
+                    onChange={(e) => setField(f.name, e.target.value)}
+                    rows={2}
+                    className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+                  />
+                ) : (
+                  <input
+                    type="text"
+                    value={data[f.name] ?? ''}
+                    onChange={(e) => setField(f.name, e.target.value)}
+                    className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Preview + save panel */}
+          <div className="space-y-4">
+            <div className="border-2 border-dashed border-slate-300 rounded-lg bg-slate-50 h-[480px] flex items-center justify-center overflow-hidden">
+              {previewUrl ? (
+                <iframe src={previewUrl} className="w-full h-full" title="Preview PDF" />
+              ) : (
+                <p className="text-sm text-slate-400 px-6 text-center">
+                  Isi formulir lalu klik <b>Preview</b> — dokumen dirender dari template asli
+                  (hasil 100% sama dengan file Word/PDF final).
+                </p>
+              )}
+            </div>
+            <button
+              onClick={handlePreview}
+              disabled={previewing}
+              className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg border border-sky-300 text-sky-700 hover:bg-sky-50 disabled:opacity-60"
+            >
+              <Eye size={14} />
+              {previewing ? 'Merender…' : 'Preview'}
+            </button>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-blue-800 mb-1">
+                  Nama File Hasil Dokumen
+                </label>
                 <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleLogoUpload}
+                  type="text"
+                  value={filename}
+                  onChange={handleFilenameChange}
+                  className="w-full border border-blue-300 rounded px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Nama file akan terisi otomatis…"
                 />
-              </label>
-              <p className="text-xs text-slate-400 mt-0.5">Logo akan muncul di sudut kiri atas dokumen</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-blue-800 mb-1">
+                  Folder Tujuan Otomatis
+                </label>
+                <input
+                  type="text"
+                  readOnly
+                  value={folderLabel}
+                  className="w-full border border-blue-200 rounded px-3 py-1.5 text-sm bg-blue-100 text-blue-700 cursor-default"
+                />
+              </div>
             </div>
-          )}
 
-          {/* Editor frame */}
-          <div className="border-2 border-dashed border-slate-300 rounded-lg p-2 bg-white">
-            <div
-              ref={editorRef}
-              contentEditable
-              suppressContentEditableWarning
-              onInput={handleEditorInput}
-              className="min-h-[350px] p-8 prose max-w-none outline-none"
-              style={{ fontFamily: "'Times New Roman', serif" }}
-            />
-          </div>
+            {error && <p className="text-red-600 text-sm">{error}</p>}
 
-          <p className="text-xs text-slate-400">
-            Klik teks berwarna kuning untuk mengedit isian dokumen.
-          </p>
-
-          {/* Blue info panel */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
-            <div>
-              <label className="block text-sm font-medium text-blue-800 mb-1">
-                Nama File Hasil Dokumen
-              </label>
-              <input
-                type="text"
-                value={filename}
-                onChange={handleFilenameChange}
-                className="w-full border border-blue-300 rounded px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-400"
-                placeholder="Nama file akan terisi otomatis…"
-              />
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-sm rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center gap-2 px-5 py-2 text-sm rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-semibold transition-colors"
+              >
+                <Save size={14} />
+                {saving ? 'Menyimpan…' : 'Simpan ke Folder'}
+              </button>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-blue-800 mb-1">
-                Folder Tujuan Otomatis
-              </label>
-              <input
-                type="text"
-                readOnly
-                value={folderLabel}
-                className="w-full border border-blue-200 rounded px-3 py-1.5 text-sm bg-blue-100 text-blue-700 cursor-default"
-              />
-            </div>
-          </div>
-
-          {error && <p className="text-red-600 text-sm">{error}</p>}
-
-          {/* Actions */}
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-sm rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50"
-            >
-              Batal
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-2 px-5 py-2 text-sm rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-semibold transition-colors"
-            >
-              <Save size={14} />
-              {saving ? 'Menyimpan…' : 'Simpan ke Folder'}
-            </button>
           </div>
         </div>
       </div>

@@ -147,7 +147,6 @@ const DocumentsTable = forwardRef<TableHandle, Props>(function DocumentsTable(
                             id: doc.id,
                             filename: doc.filename,
                             contentHtml: doc.contentHtml,
-                            logoBase64: doc.logoBase64,
                             template: doc.template,
                             folder: doc.folder,
                           })

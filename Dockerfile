@@ -19,10 +19,13 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PATH="/app/node_modules/.bin:$PATH"
-RUN apk add --no-cache openssl && addgroup -S nodejs && adduser -S nextjs -G nodejs
+# libreoffice-writer: DOCX→PDF; ttf-liberation: Arial-metric fonts for exact layout
+RUN apk add --no-cache openssl libreoffice-writer ttf-liberation fontconfig \
+    && addgroup -S nodejs && adduser -S nextjs -G nodejs
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
+COPY --from=builder /app/templates ./templates
 COPY --from=builder /app/prisma/schema.prisma ./prisma/schema.prisma
 COPY --from=builder /app/prisma/seed.cjs ./prisma/seed.cjs
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
