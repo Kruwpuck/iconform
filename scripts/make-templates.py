@@ -140,6 +140,55 @@ def tag_after_labels(doc, label_tags):
         raise SystemExit(f'label rules matched {idx}/{len(label_tags)}')
 
 
+DOT_PAREN = re.compile(r'^\(\s*[….]+\s*\)$')
+
+
+def delete_para(para):
+    para._element.getparent().remove(para._element)
+
+
+def remove_paras(doc, pred):
+    """Delete paragraphs whose flat text satisfies pred."""
+    for para in list(iter_paragraphs(doc)):
+        flat = ''.join(r.text for r in para.runs).strip()
+        if pred(flat):
+            delete_para(para)
+
+
+def clear_runs(doc, needles):
+    """Blank run text containing any needle (keeps the paragraph)."""
+    for para in iter_paragraphs(doc):
+        for run in para.runs:
+            if any(n in run.text for n in needles):
+                run.text = ''
+
+
+def remove_body_images(doc, remove_names=None):
+    """Remove inline/floating images (w:drawing) and VML shapes (w:pict)
+    from the body. remove_names limits removal to those media file names;
+    None removes all."""
+    W = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
+    R = '{http://schemas.openxmlformats.org/officeDocument/2006/relationships}'
+    rels = doc.part.rels
+
+    def target_of(rid):
+        try:
+            return os.path.basename(rels[rid].target_ref)
+        except KeyError:
+            return ''
+
+    body = doc.element.body
+    for tag in (W + 'drawing', W + 'pict'):
+        for el in list(body.iter(tag)):
+            if remove_names is None:
+                el.getparent().remove(el)
+                continue
+            rids = [sub.get(attr) for sub in el.iter() for attr in (R + 'embed', R + 'id') if sub.get(attr)]
+            if any(target_of(r) in remove_names for r in rids) or not rids:
+                # not rids → pure VML shape (signature line), remove too
+                el.getparent().remove(el)
+
+
 def slice_section(src_path, start_title, end_title):
     """Fresh Document keeping only body elements strictly between the two
     title paragraphs (title paragraphs themselves removed)."""
@@ -181,14 +230,26 @@ def main():
         (None, 'Teknisi', 'jabatanPenerima'),
         (None, 'Distribusi Radio POC', 'uraianTugas'),
         ('Tanggal Tugas', '21\\s+Mei\\s+2026', 'tanggalTugas'),
+        ('Tanggal Tugas', r'(?<=s/d )Selesai', 'tanggalTugasSelesai'),
         ('Bandung,', '21\\s+Mei\\s+2026', 'tanggalSurat'),
         (None, 'GI INDOLIBETY', 'lokasi'),
     ])
+    # strip signature block: signer identity lines, TTD + stamp images
+    clear_runs(st, ['ENGINEER', 'PEMBANGUNAN DAN DELIVERY', 'SBU REGIONAL', 'JAWA BARAT'])
+    remove_paras(st, lambda t: 'Nadhif Ahmad Dhialdien' in t
+                 or t == 'Yang bertanda tangan dibawah ini:'
+                 or re.match(r'^Jabatan\s*:?\s*Engineer$', t) is not None)
+    remove_body_images(st, remove_names={'image2.png', 'image3.png'})
     st.save(os.path.join(OUT_DIR, 'SURAT_TUGAS.docx'))
     print('SURAT_TUGAS.docx')
 
     # ── BAI ──
     bai = slice_section(ba_path, 'TEMPLATE BAI', 'UID JABAR A121601002171')
+    # drop signer identity: "( … )" signature lines, project-team-leader block
+    remove_paras(bai, lambda t: DOT_PAREN.match(t) is not None
+                 or 'Nadhif Ahmad Dhialdien' in t
+                 or 'Nama Project Team Leader' in t
+                 or t == 'Dan Penyedia Layanan PT PLN ICON PLUS')
     tag_dotted(bai, [
         'hari', 'tanggal', 'bulan', 'namaLayanan', 'namaPelanggan',
         'namaLayanan', 'serviceId', 'interface', 'bandwidth', 'originating',
@@ -197,13 +258,14 @@ def main():
         'namaPerangkat', 'snPerangkat', 'alamatPOP', 'koordinatPOP',
         'namaPerangkatPOP', 'snPOP', 'kanalPort', 'jarakOTDR',
         'namaWakil', 'jabatanWakil', 'alamatKantor', 'kontakWakil',
-        'instansiPelanggan', 'ttdPelanggan',
+        'instansiPelanggan',
     ])
     bai.save(os.path.join(OUT_DIR, 'BAI.docx'))
     print('BAI.docx')
 
     # ── BAKL ──
     bakl = slice_section(ba_path, 'TEMPLATE BAKL', 'BAKL A311601001953 MSR')
+    remove_paras(bakl, lambda t: DOT_PAREN.match(t) is not None)  # "( … )" signer lines
     tag_dotted(bakl, [
         'hari', 'tanggal', 'bulan', 'namaLayanan', 'noPA',
         'wakilPihakPertama', 'jabatanPihakPertama',
@@ -212,7 +274,7 @@ def main():
         'kendala1', 'kendala2', 'kendala3',
         'lamaTertunda', 'tglMulai', 'tglSelesai',
         'kota', 'tanggalBA',
-        'instansiPihakKedua', 'wakilPihakKedua', 'wakilPihakPertama',
+        'instansiPihakKedua',
     ])
     # the source has a literal year after the date dots — fold it into the tag
     tag_literals(bakl, [(None, r'\{tanggalBA\}\s*2026', 'tanggalBA')])
@@ -233,14 +295,57 @@ def main():
         (None, 'Fajar Sidik Nursyamsi', 'namaPihakKedua'),
         (None, 'TL Delivery Layanan dan B2B dan Ritel Jabar', 'jabatanPihakKedua'),
     ])
+    # bottom signature table: drop signer names, keep PIHAK PERTAMA/KEDUA headings
+    for row in bp.tables[-1].rows:
+        for cell in row.cells:
+            for para in list(cell.paragraphs):
+                t = ''.join(r.text for r in para.runs)
+                if '{namaPihakPertama}' in t or '{namaPihakKedua}' in t:
+                    delete_para(para)
+    # example partner logo (Gatra) is body content — templates get logo per doc
+    remove_body_images(bp)
+    # page header carries the example nomor + Gatra logo (image9) — fix both
+    HDR_NOMOR = '050602/SKU/008/SBUJBB/PLNICONPLUS/2026'
+    W = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
+    R = '{http://schemas.openxmlformats.org/officeDocument/2006/relationships}'
+    for sec in bp.sections:
+        for hdr in (sec.header, sec.first_page_header, sec.even_page_header):
+            for para in hdr.paragraphs:
+                flat = ''.join(r.text for r in para.runs)
+                m = re.search(re.escape(HDR_NOMOR), flat)
+                if m:
+                    replace_spans(para, [(m.start(), m.end(), '{nomor}')])
+            for el in list(hdr.part.element.iter(W + 'drawing')):
+                rids = [sub.get(a) for sub in el.iter() for a in (R + 'embed', R + 'id') if sub.get(a)]
+                names = set()
+                for rid in rids:
+                    try:
+                        names.add(os.path.basename(hdr.part.rels[rid].target_ref))
+                    except KeyError:
+                        pass
+                if 'image9.png' in names:
+                    el.getparent().remove(el)
     bp.save(os.path.join(OUT_DIR, 'BA_PENGUJIAN.docx'))
     print('BA_PENGUJIAN.docx')
 
     # ── BAP ──
     bap = slice_section(ba_path, 'TEMPLATE BAP', 'BAP A121201000003')
+    # signature table: keep instansi line (first dotted para per cell), drop
+    # signer-name lines and the Nadhif counterpart
+    seen_dots = set()
+    for row in bap.tables[-1].rows:
+        for ci, cell in enumerate(row.cells):
+            for para in list(cell.paragraphs):
+                t = ''.join(r.text for r in para.runs).strip()
+                if 'Nadhif Ahmad Dhialdien' in t:
+                    delete_para(para)
+                elif re.fullmatch(r'[….]+', t):
+                    if ci in seen_dots:
+                        delete_para(para)
+                    seen_dots.add(ci)
     tag_dotted(bap, [
         'bulan', 'tahun', 'namaLayanan',
-        'tanggalBA', 'instansiPelanggan', 'ttdPelanggan',
+        'tanggalBA', 'instansiPelanggan',
     ])
     for para in iter_paragraphs(bap):
         flat = ''.join(r.text for r in para.runs)

@@ -1,14 +1,15 @@
 'use client';
 
 import { useRef, useState, useEffect } from 'react';
-import { X, Eye, Save } from 'lucide-react';
-import type { TemplateDef } from '@/lib/templates';
+import { X, Eye, Save, ImagePlus } from 'lucide-react';
+import { formatDate, type TemplateDef } from '@/lib/templates';
 import type { FolderType, TemplateType } from '@prisma/client';
 
 export type ExistingDoc = {
   id: string;
   filename: string;
   contentHtml: string; // JSON form data
+  logoBase64?: string | null;
   template: TemplateType;
   folder: FolderType;
 };
@@ -39,6 +40,7 @@ function initialData(template: TemplateDef, existingDoc?: ExistingDoc): Record<s
 export default function EditorModal({ template, existingDoc, onClose, onSaved }: Props) {
   const dirtyRef = useRef(!!existingDoc);
   const [data, setData] = useState<Record<string, string>>(() => initialData(template, existingDoc));
+  const [logo, setLogo] = useState<string | null>(existingDoc?.logoBase64 ?? null);
   const [filename, setFilename] = useState(existingDoc?.filename ?? '');
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState(false);
@@ -54,12 +56,27 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
   function setField(name: string, value: string) {
     setData((prev) => {
       const next = { ...prev, [name]: value };
+      // date fields fan out into the document's hari/tanggal/bulan/tahun tags
+      const f = template.fields.find((x) => x.name === name);
+      if (f?.type === 'date' && f.dateMaps) {
+        for (const [tag, kind] of Object.entries(f.dateMaps)) {
+          next[tag] = value ? formatDate(kind, value) : '';
+        }
+      }
       if (!dirtyRef.current) {
         const suggested = template.suggestName(next);
         if (suggested) setFilename(suggested);
       }
       return next;
     });
+  }
+
+  function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setLogo(ev.target?.result as string);
+    reader.readAsDataURL(file);
   }
 
   function handleFilenameChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -102,7 +119,7 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename: name, template: template.id, data }),
+        body: JSON.stringify({ filename: name, template: template.id, data, logo }),
       });
 
       if (!res.ok) {
@@ -153,7 +170,7 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
                   />
                 ) : (
                   <input
-                    type="text"
+                    type={f.type === 'date' ? 'date' : 'text'}
                     value={data[f.name] ?? ''}
                     onChange={(e) => setField(f.name, e.target.value)}
                     className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
@@ -161,6 +178,20 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
                 )}
               </div>
             ))}
+
+            {template.allowLogo && (
+              <div className="border-t pt-3">
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-600 cursor-pointer w-fit">
+                  <ImagePlus size={16} />
+                  Upload Logo Pihak Kedua
+                  <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                </label>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Logo disimpan bersama dokumen di folder Drive khusus BA ini.
+                </p>
+                {logo && <img src={logo} alt="Logo Pihak Kedua" className="mt-2 max-h-16 border rounded" />}
+              </div>
+            )}
           </div>
 
           {/* Preview + save panel */}

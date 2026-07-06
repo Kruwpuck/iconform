@@ -1,10 +1,16 @@
 import { type TemplateType, type FolderType } from '@prisma/client';
 
+/** how a date input value expands into document tags */
+export type DateKind = 'weekday' | 'day' | 'month' | 'yearWords' | 'yearWordsDMY' | 'long';
+
 export type TemplateField = {
   name: string;
   label: string;
   default?: string;
   multiline?: boolean;
+  type?: 'text' | 'date';
+  /** for type:'date' — tag name → format written into data */
+  dateMaps?: Record<string, DateKind>;
 };
 
 export type TemplateDef = {
@@ -14,22 +20,47 @@ export type TemplateDef = {
   folder: FolderType;
   /** DOCX master under templates/docx/ — the original GDocs file with {tags} */
   file: string;
+  /** BA Pengujian: partner logo upload, stored beside the document in Drive */
+  allowLogo?: boolean;
   fields: TemplateField[];
   suggestName: (data: Record<string, string>) => string | null;
 };
 
+const MONTHS = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+const UNITS = ['', 'Satu', 'Dua', 'Tiga', 'Empat', 'Lima', 'Enam', 'Tujuh', 'Delapan', 'Sembilan'];
+const TEENS = ['Sepuluh', 'Sebelas', 'Dua Belas', 'Tiga Belas', 'Empat Belas', 'Lima Belas', 'Enam Belas', 'Tujuh Belas', 'Delapan Belas', 'Sembilan Belas'];
+
+/** Indonesian words for years 2000–2099, e.g. 2026 → "Dua Ribu Dua Puluh Enam" */
+function yearWords(y: number): string {
+  const rest = y - 2000;
+  if (rest === 0) return 'Dua Ribu';
+  if (rest < 10) return 'Dua Ribu ' + UNITS[rest];
+  if (rest < 20) return 'Dua Ribu ' + TEENS[rest - 10];
+  const tens = Math.floor(rest / 10), unit = rest % 10;
+  return 'Dua Ribu ' + UNITS[tens] + ' Puluh' + (unit ? ' ' + UNITS[unit] : '');
+}
+
+export function formatDate(kind: DateKind, iso: string): string {
+  const d = new Date(iso + 'T00:00:00');
+  if (isNaN(d.getTime())) return '';
+  switch (kind) {
+    case 'weekday': return d.toLocaleDateString('id-ID', { weekday: 'long' });
+    case 'day': return String(d.getDate());
+    case 'month': return MONTHS[d.getMonth()];
+    case 'yearWords': return yearWords(d.getFullYear());
+    case 'yearWordsDMY': {
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      return `${yearWords(d.getFullYear())} (${dd}-${mm}-${d.getFullYear()})`;
+    }
+    case 'long': return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  }
+}
+
 const clean = (v: string) => v.replace(/\//g, '-').replace(/\s+/g, '_');
 
-/* shared field groups */
-const HARI_TGL: TemplateField[] = [
-  { name: 'hari', label: 'Hari' },
-  { name: 'tanggal', label: 'Tanggal' },
-  { name: 'bulan', label: 'Bulan' },
-];
-
 const BAI_FIELDS: TemplateField[] = [
-  ...HARI_TGL,
-  { name: 'tahun', label: 'Tahun (terbilang)', default: 'Dua Ribu Dua Puluh Enam' },
+  { name: '_tglPelaksanaan', label: 'Tanggal Pelaksanaan', type: 'date', dateMaps: { hari: 'weekday', tanggal: 'day', bulan: 'month', tahun: 'yearWords' } },
   { name: 'namaLayanan', label: 'Nama Layanan' },
   { name: 'namaPelanggan', label: 'Nama Pelanggan' },
   { name: 'serviceId', label: 'Service ID' },
@@ -51,7 +82,6 @@ const BAI_FIELDS: TemplateField[] = [
   { name: 'alamatKantor', label: 'Wakil Pelanggan — Alamat Kantor' },
   { name: 'kontakWakil', label: 'Wakil Pelanggan — Telp/HP, Email' },
   { name: 'instansiPelanggan', label: 'Instansi Penandatangan' },
-  { name: 'ttdPelanggan', label: 'Nama Penandatangan Pelanggan' },
 ];
 
 export const TEMPLATES: TemplateDef[] = [
@@ -68,9 +98,10 @@ export const TEMPLATES: TemplateDef[] = [
       { name: 'nama3', label: 'Nama Petugas 3' },
       { name: 'jabatanPenerima', label: 'Jabatan Petugas', default: 'Teknisi' },
       { name: 'uraianTugas', label: 'Uraian Tugas', multiline: true },
-      { name: 'tanggalTugas', label: 'Tanggal Tugas' },
+      { name: '_tglMulai', label: 'Tanggal Tugas — Mulai', type: 'date', dateMaps: { tanggalTugas: 'long' } },
+      { name: '_tglSelesai', label: 'Tanggal Tugas — Selesai', type: 'date', dateMaps: { tanggalTugasSelesai: 'long' } },
       { name: 'lokasi', label: 'Lokasi' },
-      { name: 'tanggalSurat', label: 'Tanggal Surat' },
+      { name: '_tglSurat', label: 'Tanggal Surat', type: 'date', dateMaps: { tanggalSurat: 'long' } },
     ],
     suggestName: (d) => (d.nomor ? 'Surat_Tugas_' + clean(d.nomor) : null),
   },
@@ -103,11 +134,11 @@ export const TEMPLATES: TemplateDef[] = [
     folder: 'BERITA_ACARA',
     file: 'BAKL.docx',
     fields: [
-      ...HARI_TGL,
+      { name: '_tglPelaksanaan', label: 'Tanggal Pelaksanaan', type: 'date', dateMaps: { hari: 'weekday', tanggal: 'day', bulan: 'month' } },
       { name: 'namaLayanan', label: 'Nama Layanan' },
       { name: 'noPA', label: 'No PA' },
-      { name: 'wakilPihakPertama', label: 'PLN Icon Plus — Diwakili Oleh', default: 'Nadhif Ahmad Dhialdien' },
-      { name: 'jabatanPihakPertama', label: 'PLN Icon Plus — Jabatan', default: 'Engineer Pembangunan SBU Regional Jabar' },
+      { name: 'wakilPihakPertama', label: 'PLN Icon Plus — Diwakili Oleh' },
+      { name: 'jabatanPihakPertama', label: 'PLN Icon Plus — Jabatan' },
       { name: 'instansiPihakKedua', label: 'Pihak Kedua — Instansi' },
       { name: 'wakilPihakKedua', label: 'Pihak Kedua — Diwakili Oleh' },
       { name: 'jabatanPihakKedua', label: 'Pihak Kedua — Jabatan' },
@@ -117,10 +148,10 @@ export const TEMPLATES: TemplateDef[] = [
       { name: 'kendala2', label: 'Kendala 2', multiline: true },
       { name: 'kendala3', label: 'Kendala 3', multiline: true },
       { name: 'lamaTertunda', label: 'Lama Tertunda (hari)' },
-      { name: 'tglMulai', label: 'Tertunda Sejak Tanggal' },
-      { name: 'tglSelesai', label: 'Tertunda Sampai Tanggal' },
+      { name: '_tglTundaMulai', label: 'Tertunda — Mulai', type: 'date', dateMaps: { tglMulai: 'long' } },
+      { name: '_tglTundaSelesai', label: 'Tertunda — Selesai', type: 'date', dateMaps: { tglSelesai: 'long' } },
       { name: 'kota', label: 'Kota', default: 'Bandung' },
-      { name: 'tanggalBA', label: 'Tanggal Berita Acara' },
+      { name: '_tglBA', label: 'Tanggal Berita Acara', type: 'date', dateMaps: { tanggalBA: 'long' } },
     ],
     suggestName: (d) => (d.noPA ? 'BAKL_' + clean(d.noPA) : null),
   },
@@ -130,9 +161,10 @@ export const TEMPLATES: TemplateDef[] = [
     description: 'Berita Acara Hasil Pengujian',
     folder: 'BERITA_ACARA',
     file: 'BA_PENGUJIAN.docx',
+    allowLogo: true,
     fields: [
-      ...HARI_TGL,
-      { name: 'tahun', label: 'Tahun (terbilang + tanggal)', default: 'Dua Ribu Dua Puluh Enam' },
+      { name: 'nomor', label: 'Nomor Berita Acara' },
+      { name: '_tglPelaksanaan', label: 'Tanggal Pelaksanaan', type: 'date', dateMaps: { hari: 'weekday', tanggal: 'day', bulan: 'month', tahun: 'yearWordsDMY' } },
       { name: 'namaPihakPertama', label: 'Pihak Pertama — Nama' },
       { name: 'jabatanPihakPertama', label: 'Pihak Pertama — Jabatan' },
       { name: 'instansiPihakPertama', label: 'Pihak Pertama — Instansi' },
@@ -141,7 +173,9 @@ export const TEMPLATES: TemplateDef[] = [
       { name: 'jabatanPihakKedua', label: 'Pihak Kedua — Jabatan' },
     ],
     suggestName: (d) =>
-      d.instansiPihakPertama ? 'BA_Pengujian_' + clean(d.instansiPihakPertama) : null,
+      d.nomor ? 'BA_Pengujian_' + clean(d.nomor)
+      : d.instansiPihakPertama ? 'BA_Pengujian_' + clean(d.instansiPihakPertama).replace(/[^a-zA-Z0-9_-]/g, '')
+      : null,
   },
   {
     id: 'BAP',
@@ -150,9 +184,7 @@ export const TEMPLATES: TemplateDef[] = [
     folder: 'BERITA_ACARA',
     file: 'BAP.docx',
     fields: [
-      { name: 'tanggal', label: 'Tanggal' },
-      { name: 'bulan', label: 'Bulan' },
-      { name: 'tahun', label: 'Tahun (terbilang)', default: 'Dua Ribu Dua Puluh Enam' },
+      { name: '_tglPelaksanaan', label: 'Tanggal Pelaksanaan', type: 'date', dateMaps: { tanggal: 'day', bulan: 'month', tahun: 'yearWords' } },
       { name: 'namaLayanan', label: 'Nama Layanan' },
       { name: 'noSalesOrder', label: 'No Sales Order' },
       { name: 'namaPelanggan', label: 'Nama Pelanggan' },
@@ -169,8 +201,7 @@ export const TEMPLATES: TemplateDef[] = [
       { name: 'catatanTer', label: 'Catatan Terminating' },
       { name: 'jarakOTDR', label: 'Jarak OTDR' },
       { name: 'instansiPelanggan', label: 'Instansi Penandatangan' },
-      { name: 'ttdPelanggan', label: 'Nama Penandatangan Pelanggan' },
-      { name: 'tanggalBA', label: 'Tanggal Berita Acara' },
+      { name: '_tglBA', label: 'Tanggal Berita Acara', type: 'date', dateMaps: { tanggalBA: 'long' } },
     ],
     suggestName: (d) => (d.noSalesOrder ? 'BAP_' + clean(d.noSalesOrder) : null),
   },

@@ -1,15 +1,10 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
-import { uploadFile, deleteFile } from '@/lib/gdrive';
+import { uploadFile, deleteFile, prepareTargetFolder } from '@/lib/gdrive';
 import { templateById } from '@/lib/templates';
 import { fillDocx, docxToPdf } from '@/lib/docxgen';
 import { FolderType, TemplateType } from '@prisma/client';
-
-const FOLDER_IDS: Record<FolderType, string | undefined> = {
-  SURAT_TUGAS: process.env.GDRIVE_FOLDER_SURAT_TUGAS_ID,
-  BERITA_ACARA: process.env.GDRIVE_FOLDER_BERITA_ACARA_ID,
-};
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -48,6 +43,7 @@ export async function POST(req: Request) {
   const filename = (body.filename as string | undefined)?.trim();
   const template = body.template as string | undefined;
   const data = (body.data ?? {}) as Record<string, string>;
+  const logo = body.logo as string | null | undefined;
 
   if (!filename) return NextResponse.json({ error: 'filename required' }, { status: 400 });
   const def = template && Object.values(TemplateType).includes(template as TemplateType)
@@ -55,7 +51,7 @@ export async function POST(req: Request) {
     : undefined;
   if (!def) return NextResponse.json({ error: 'invalid template' }, { status: 400 });
 
-  const folderId = FOLDER_IDS[def.folder];
+  const folderId = await prepareTargetFolder(def.id, def.folder, filename, logo);
   if (!folderId) return NextResponse.json({ error: 'Drive folder ID not configured' }, { status: 500 });
 
   // server-side generation from the original DOCX master — exact layout
@@ -79,6 +75,7 @@ export async function POST(req: Request) {
         folder: def.folder,
         template: def.id,
         contentHtml: JSON.stringify(data), // ponytail: reuse column for form data JSON
+        logoBase64: logo ?? null,
         driveFileIdPdf: pdf.id,
         driveFileIdDocx: docx.id,
         webViewLinkPdf: pdf.webViewLink,

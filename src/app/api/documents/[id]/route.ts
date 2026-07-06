@@ -1,15 +1,10 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
-import { uploadFile, deleteFile } from '@/lib/gdrive';
+import { uploadFile, deleteFile, prepareTargetFolder, getFileMeta } from '@/lib/gdrive';
 import { templateById } from '@/lib/templates';
 import { fillDocx, docxToPdf } from '@/lib/docxgen';
-import { FolderType, TemplateType } from '@prisma/client';
-
-const FOLDER_IDS: Record<FolderType, string | undefined> = {
-  SURAT_TUGAS: process.env.GDRIVE_FOLDER_SURAT_TUGAS_ID,
-  BERITA_ACARA: process.env.GDRIVE_FOLDER_BERITA_ACARA_ID,
-};
+import { TemplateType } from '@prisma/client';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -38,6 +33,7 @@ export async function PUT(req: Request, { params }: Params) {
   const filename = (body.filename as string | undefined)?.trim();
   const template = body.template as string | undefined;
   const data = (body.data ?? {}) as Record<string, string>;
+  const logo = body.logo as string | null | undefined;
 
   if (!filename) return NextResponse.json({ error: 'filename required' }, { status: 400 });
   const def = template && Object.values(TemplateType).includes(template as TemplateType)
@@ -45,7 +41,9 @@ export async function PUT(req: Request, { params }: Params) {
     : undefined;
   if (!def) return NextResponse.json({ error: 'invalid template' }, { status: 400 });
 
-  const folderId = FOLDER_IDS[def.folder];
+  // ponytail: renaming a BA Pengujian leaves the old (now empty) per-doc
+  // folder behind; clean up manually if it bothers anyone
+  const folderId = await prepareTargetFolder(def.id, def.folder, filename, logo);
   if (!folderId) return NextResponse.json({ error: 'Drive folder ID not configured' }, { status: 500 });
 
   const docxBuf = await fillDocx(def.file, data);
@@ -68,6 +66,7 @@ export async function PUT(req: Request, { params }: Params) {
       folder: def.folder,
       template: def.id,
       contentHtml: JSON.stringify(data),
+      logoBase64: logo ?? null,
       driveFileIdPdf: pdf.id,
       driveFileIdDocx: docx.id,
       webViewLinkPdf: pdf.webViewLink,
@@ -94,10 +93,26 @@ export async function DELETE(_req: Request, { params }: Params) {
   if (doc.createdById !== session.user?.id)
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-  await Promise.allSettled([
-    deleteFile(doc.driveFileIdPdf),
-    deleteFile(doc.driveFileIdDocx),
-  ]);
+  // BA Pengujian lives in its own per-doc folder — remove the whole folder
+  // (doc + logo) when its name matches; otherwise fall back to per-file delete
+  let folderDeleted = false;
+  if (doc.template === 'BA_PENGUJIAN') {
+    const meta = await getFileMeta(doc.driveFileIdPdf);
+    const parentId = meta?.parents[0];
+    if (parentId) {
+      const parent = await getFileMeta(parentId);
+      if (parent?.name === doc.filename) {
+        await deleteFile(parentId);
+        folderDeleted = true;
+      }
+    }
+  }
+  if (!folderDeleted) {
+    await Promise.allSettled([
+      deleteFile(doc.driveFileIdPdf),
+      deleteFile(doc.driveFileIdDocx),
+    ]);
+  }
 
   await prisma.document.delete({ where: { id } });
   return new NextResponse(null, { status: 204 });
