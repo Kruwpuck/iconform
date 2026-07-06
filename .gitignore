@@ -2,3 +2,5 @@ node_modules/
 .next/
 tsconfig.tsbuildinfo
 .env
+iconform-drive-xxxx.json
+iconform-drive.json

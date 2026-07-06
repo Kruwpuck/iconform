@@ -2,15 +2,17 @@ import { google } from 'googleapis';
 import { Readable } from 'stream';
 
 function getDriveClient() {
-  const b64 = process.env.GDRIVE_SERVICE_ACCOUNT_B64;
-  if (!b64) throw new Error('GDRIVE_SERVICE_ACCOUNT_B64 not set');
+  const clientId = process.env.GDRIVE_OAUTH_CLIENT_ID;
+  const clientSecret = process.env.GDRIVE_OAUTH_CLIENT_SECRET;
+  const refreshToken = process.env.GDRIVE_OAUTH_REFRESH_TOKEN;
+  if (!clientId || !clientSecret || !refreshToken)
+    throw new Error('GDRIVE_OAUTH_CLIENT_ID / GDRIVE_OAUTH_CLIENT_SECRET / GDRIVE_OAUTH_REFRESH_TOKEN not set');
 
-  const credentials = JSON.parse(Buffer.from(b64, 'base64').toString('utf-8'));
-  const auth = new google.auth.GoogleAuth({
-    credentials,
-    scopes: ['https://www.googleapis.com/auth/drive'],
-  });
-  return google.drive({ version: 'v3', auth });
+  // OAuth user credentials — uploads count against the user's own Drive quota.
+  // Service accounts have no storage quota on personal (non-Workspace) accounts.
+  const oauth2 = new google.auth.OAuth2(clientId, clientSecret);
+  oauth2.setCredentials({ refresh_token: refreshToken });
+  return google.drive({ version: 'v3', auth: oauth2 });
 }
 
 export async function uploadFile(
@@ -21,6 +23,7 @@ export async function uploadFile(
 ): Promise<{ id: string; webViewLink: string }> {
   const drive = getDriveClient();
   const res = await drive.files.create({
+    supportsAllDrives: true,
     requestBody: { name, parents: [folderId] },
     media: { mimeType: mime, body: Readable.from(buffer) },
     fields: 'id, webViewLink',
@@ -34,7 +37,7 @@ export async function uploadFile(
 export async function deleteFile(fileId: string): Promise<void> {
   try {
     const drive = getDriveClient();
-    await drive.files.delete({ fileId });
+    await drive.files.delete({ fileId, supportsAllDrives: true });
   } catch (err: unknown) {
     const code = (err as { code?: number; status?: number })?.code ?? (err as { code?: number; status?: number })?.status;
     if (code === 404) return; // already deleted, swallow
@@ -45,7 +48,7 @@ export async function deleteFile(fileId: string): Promise<void> {
 export async function streamFile(fileId: string): Promise<Readable> {
   const drive = getDriveClient();
   const res = await drive.files.get(
-    { fileId, alt: 'media' },
+    { fileId, alt: 'media', supportsAllDrives: true },
     { responseType: 'stream' }
   );
   return res.data as Readable;
