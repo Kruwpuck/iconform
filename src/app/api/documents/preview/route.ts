@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { templateById } from '@/lib/templates';
-import { fillDocx, docxToPdf } from '@/lib/docxgen';
+import { generateDoc, pdfToPngs } from '@/lib/docxgen';
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -14,8 +14,17 @@ export async function POST(req: Request) {
   const def = template ? templateById(template) : undefined;
   if (!def) return NextResponse.json({ error: 'invalid template' }, { status: 400 });
 
-  const docx = await fillDocx(def.file, data);
-  const pdf = await docxToPdf(docx);
+  // format=pages → PNG per page for the drag-to-position preview
+  // blank images so the PDF has no marks baked in; UI overlay renders them
+  if (new URL(req.url).searchParams.get('format') === 'pages') {
+    const { pdf } = await generateDoc(def.file, { ...data, ttd: '', stempel: '' });
+    const pngs = await pdfToPngs(pdf);
+    return NextResponse.json({
+      pages: pngs.map((b) => 'data:image/png;base64,' + b.toString('base64')),
+    });
+  }
+
+  const { pdf } = await generateDoc(def.file, data);
 
   return new NextResponse(new Uint8Array(pdf), {
     headers: { 'Content-Type': 'application/pdf' },

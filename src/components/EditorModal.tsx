@@ -42,16 +42,10 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
   const [data, setData] = useState<Record<string, string>>(() => initialData(template, existingDoc));
   const [logo, setLogo] = useState<string | null>(existingDoc?.logoBase64 ?? null);
   const [filename, setFilename] = useState(existingDoc?.filename ?? '');
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [pages, setPages] = useState<string[]>([]);
   const [previewing, setPreviewing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-    };
-  }, [previewUrl]);
 
   function setField(name: string, value: string) {
     setData((prev) => {
@@ -80,13 +74,71 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
   }
 
   // ttd/stempel live inside `data` → fill the {%ttd}/{%stempel} tags and
-  // persist via contentHtml with zero API changes
-  function handleImageField(e: React.ChangeEvent<HTMLInputElement>, key: string) {
+  // persist via contentHtml with zero API changes. Normalized to PNG via
+  // canvas (pdf-lib stamping only takes PNG/JPG); a default position is set
+  // so the mark is draggable in the preview right away.
+  function handleImageField(e: React.ChangeEvent<HTMLInputElement>, key: 'ttd' | 'stempel') {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => setField(key, ev.target?.result as string);
-    reader.readAsDataURL(file);
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      c.getContext('2d')!.drawImage(img, 0, 0);
+      setData((prev) => ({
+        ...prev,
+        [key]: c.toDataURL('image/png'),
+        [key + 'Pos']: prev[key + 'Pos'] || (key === 'ttd' ? '1,0.60,0.72' : '1,0.64,0.78'),
+        [key + 'Size']: prev[key + 'Size'] || '1',
+      }));
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  }
+
+  function parsePos(s: string | undefined): { page: number; x: number; y: number } | null {
+    const m = /^(\d+),([\d.]+),([\d.]+)$/.exec(s ?? '');
+    return m ? { page: +m[1], x: +m[2], y: +m[3] } : null;
+  }
+
+  function startResize(e: React.PointerEvent<HTMLDivElement>, key: 'ttd' | 'stempel') {
+    e.preventDefault();
+    e.stopPropagation();
+    const startY = e.clientY;
+    const startScale = parseFloat(data[key + 'Size'] || '1');
+    function move(ev: PointerEvent) {
+      const next = Math.max(0.3, startScale + (ev.clientY - startY) / 45);
+      setData((prev) => ({ ...prev, [key + 'Size']: next.toFixed(3) }));
+    }
+    function up() {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    }
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  }
+
+  function startDrag(e: React.PointerEvent<HTMLImageElement>, key: 'ttd' | 'stempel', page: number) {
+    e.preventDefault();
+    // parentElement = wrapper div; parentElement.parentElement = page container
+    const wrap = e.currentTarget.parentElement!.parentElement!;
+    const mr = e.currentTarget.getBoundingClientRect();
+    const dx = e.clientX - mr.left;
+    const dy = e.clientY - mr.top;
+    function move(ev: PointerEvent) {
+      const r = wrap.getBoundingClientRect();
+      const x = Math.min(Math.max((ev.clientX - dx - r.left) / r.width, 0), 0.98);
+      const y = Math.min(Math.max((ev.clientY - dy - r.top) / r.height, 0), 0.98);
+      setData((prev) => ({ ...prev, [key + 'Pos']: `${page},${x.toFixed(4)},${y.toFixed(4)}` }));
+    }
+    function up() {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    }
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
   }
 
   function handleFilenameChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -98,7 +150,7 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
     setPreviewing(true);
     setError('');
     try {
-      const res = await fetch('/api/documents/preview', {
+      const res = await fetch('/api/documents/preview?format=pages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ template: template.id, data }),
@@ -107,9 +159,8 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error ?? `HTTP ${res.status}`);
       }
-      const blob = await res.blob();
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(URL.createObjectURL(blob));
+      const json = await res.json();
+      setPages(json.pages as string[]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal membuat preview.');
     } finally {
@@ -229,11 +280,41 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
 
           {/* Preview + save panel */}
           <div className="space-y-4">
-            <div className="border-2 border-dashed border-slate-300 rounded-lg bg-slate-50 h-[480px] flex items-center justify-center overflow-hidden">
-              {previewUrl ? (
-                <iframe src={previewUrl} className="w-full h-full" title="Preview PDF" />
-              ) : (
-                <p className="text-sm text-slate-400 px-6 text-center">
+            <div className="overflow-auto border-2 border-dashed border-slate-300 rounded-lg bg-slate-50 h-[480px]">
+              {pages.length ? pages.map((src, pi) => {
+                const pageNum = pi + 1;
+                return (
+                  <div key={pi} className="relative" style={{ userSelect: 'none' }}>
+                    <img src={src} className="w-full block" alt={`Halaman ${pageNum}`} />
+                    {(['ttd', 'stempel'] as const).map((key) => {
+                      const pos = parsePos(data[key + 'Pos']);
+                      if (!pos || pos.page !== pageNum || !data[key]) return null;
+                      const h = 45 * parseFloat(data[key + 'Size'] || '1');
+                      return (
+                        <div
+                          key={key}
+                          className="absolute"
+                          style={{ left: `${pos.x * 100}%`, top: `${pos.y * 100}%`, touchAction: 'none' }}
+                        >
+                          <img
+                            src={data[key]}
+                            className="block cursor-grab active:cursor-grabbing"
+                            style={{ height: `${h}px`, width: 'auto' }}
+                            onPointerDown={(e) => startDrag(e, key, pageNum)}
+                            alt={key}
+                            draggable={false}
+                          />
+                          <div
+                            className="absolute bottom-0 right-0 w-3 h-3 bg-sky-500/70 rounded-sm cursor-se-resize"
+                            onPointerDown={(e) => startResize(e, key)}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              }) : (
+                <p className="text-sm text-slate-400 px-6 text-center pt-6">
                   Isi formulir lalu klik <b>Preview</b> — dokumen dirender dari template asli
                   (hasil 100% sama dengan file Word/PDF final).
                 </p>

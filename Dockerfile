@@ -20,7 +20,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PATH="/app/node_modules/.bin:$PATH"
 # libreoffice-writer: DOCX→PDF; ttf-liberation: Arial-metric fonts for exact layout
-RUN apk add --no-cache openssl libreoffice-writer ttf-liberation fontconfig \
+# poppler-utils: pdftoppm renders preview pages for drag-to-position signatures
+RUN apk add --no-cache openssl libreoffice-writer ttf-liberation fontconfig poppler-utils \
     && addgroup -S nodejs && adduser -S nextjs -G nodejs
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static

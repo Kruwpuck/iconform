@@ -3,7 +3,7 @@ import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { uploadFile, deleteFile, prepareTargetFolder } from '@/lib/gdrive';
 import { templateById } from '@/lib/templates';
-import { fillDocx, docxToPdf } from '@/lib/docxgen';
+import { generateDoc } from '@/lib/docxgen';
 import { FolderType, TemplateType } from '@prisma/client';
 
 export async function GET(req: Request) {
@@ -55,8 +55,7 @@ export async function POST(req: Request) {
   if (!folderId) return NextResponse.json({ error: 'Drive folder ID not configured' }, { status: 500 });
 
   // server-side generation from the original DOCX master — exact layout
-  const docxBuf = await fillDocx(def.file, data);
-  const pdfBuf = await docxToPdf(docxBuf);
+  const { docx: docxBuf, pdf: pdfBuf } = await generateDoc(def.file, data);
 
   const [pdf, docx] = await Promise.all([
     uploadFile(filename + '.pdf', 'application/pdf', pdfBuf, folderId),
