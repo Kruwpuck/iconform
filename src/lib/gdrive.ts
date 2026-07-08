@@ -75,6 +75,8 @@ export function resolveFolderId(templateId: string, folder: string): string | un
     BAKL: process.env.GDRIVE_FOLDER_BAKL_ID,
     BA_PENGUJIAN: process.env.GDRIVE_FOLDER_BA_PENGUJIAN_ID,
     BAP: process.env.GDRIVE_FOLDER_BAP_ID,
+    BAST: process.env.GDRIVE_FOLDER_BAST_ID,
+    NODIN: process.env.GDRIVE_FOLDER_NODIN_ID,
   };
   const perFolder: Record<string, string | undefined> = {
     SURAT_TUGAS: process.env.GDRIVE_FOLDER_SURAT_TUGAS_ID,

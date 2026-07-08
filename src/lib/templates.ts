@@ -205,6 +205,51 @@ export const TEMPLATES: TemplateDef[] = [
     ],
     suggestName: (d) => (d.noSalesOrder ? 'BAP_' + clean(d.noSalesOrder) : null),
   },
+  {
+    id: 'BAST',
+    label: 'BAST',
+    description: 'Berita Acara Serah Terima Barang',
+    folder: 'BERITA_ACARA',
+    file: 'BAST.docx',
+    fields: [
+      { name: 'nomor', label: 'Nomor Berita Acara' },
+      { name: '_tglSerahTerima', label: 'Tanggal Serah Terima', type: 'date', dateMaps: { hari: 'weekday', tanggal: 'day', bulan: 'month', tahun: 'yearWordsDMY' } },
+      { name: 'namaPihakPertama', label: 'Pihak Pertama — Nama' },
+      { name: 'jabatanPihakPertama', label: 'Pihak Pertama — Jabatan' },
+      { name: 'instansiPihakPertama', label: 'Pihak Pertama — Instansi' },
+      { name: 'berkedudukanPihakPertama', label: 'Pihak Pertama — Berkedudukan', multiline: true },
+      { name: 'namaPihakKedua', label: 'Pihak Kedua — Nama' },
+      { name: 'jabatanPihakKedua', label: 'Pihak Kedua — Jabatan' },
+      { name: 'instansiPihakKedua', label: 'Pihak Kedua — Instansi' },
+      { name: 'berkedudukanPihakKedua', label: 'Pihak Kedua — Berkedudukan', multiline: true },
+      { name: 'perangkat', label: 'Perangkat' },
+      { name: 'jumlah', label: 'Jumlah' },
+      { name: 'biaya', label: 'Jenis Biaya (dasar penagihan)' },
+    ],
+    suggestName: (d) => (d.nomor ? 'BAST_' + clean(d.nomor) : null),
+  },
+  {
+    id: 'NODIN',
+    label: 'Nota Dinas',
+    description: 'Nota Dinas permohonan pembayaran dana dropping',
+    folder: 'BERITA_ACARA', // ponytail: reuse existing FolderType; Drive routing is per-template anyway
+    file: 'NODIN.docx',
+    fields: [
+      { name: 'perihal', label: 'Perihal' },
+      { name: 'pekerjaan', label: 'Pekerjaan yang Telah Dilaksanakan' },
+      { name: 'tim', label: 'Tim Pelaksana (dari)' },
+      { name: 'prk', label: 'No PRK' },
+      { name: 'coa', label: 'COA' },
+      { name: 'material', label: 'Material' },
+      { name: 'vol', label: 'Volume' },
+      { name: 'satuan', label: 'Satuan' },
+      { name: 'hargaSatuan', label: 'Harga Satuan (Rp)' },
+      { name: 'jumlahTotal', label: 'Jumlah Total (Rp)' },
+      { name: 'totalTagihan', label: 'Total Tagihan (Rp)' },
+    ],
+    suggestName: (d) =>
+      d.perihal ? 'NODIN_' + clean(d.perihal).replace(/[^a-zA-Z0-9_-]/g, '') : null,
+  },
 ];
 
 export function templateById(id: string): TemplateDef | undefined {

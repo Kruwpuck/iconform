@@ -40,6 +40,8 @@ enum TemplateType {
   BAP
   BAKL
   UID_JABAR
+  BAST
+  NODIN
 }
 
 model Document {

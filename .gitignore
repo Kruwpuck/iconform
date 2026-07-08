@@ -4,3 +4,4 @@ tsconfig.tsbuildinfo
 .env
 iconform-drive-xxxx.json
 iconform-drive.json
+scripts/__pycache__/
