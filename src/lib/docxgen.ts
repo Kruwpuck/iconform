@@ -5,17 +5,48 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
+import ImageModule from 'docxtemplater-image-module-free';
+import { imageSize } from 'image-size';
 
 const exec = promisify(execFile);
 const TPL_DIR = path.join(process.cwd(), 'templates', 'docx');
 
-/** Fill a DOCX template (docxtemplater {tags}) with form data. */
+// 1x1 transparent PNG — rendered when a {%tag} has no uploaded image
+const BLANK_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  'base64'
+);
+// ponytail: one height for ttd + stempel; fits the tightest master (BAST) —
+// tune per-tag if a template ever needs bigger marks
+const SIGNATURE_HEIGHT_PX = 45;
+
+function imageModule() {
+  return new ImageModule({
+    centered: false,
+    getImage: (v: string | undefined) => {
+      const m = /^data:image\/[\w+.-]+;base64,(.+)$/.exec(v ?? '');
+      return m ? Buffer.from(m[1], 'base64') : BLANK_PNG;
+    },
+    getSize: (img: Buffer) => {
+      if (img.equals(BLANK_PNG)) return [1, 1];
+      try {
+        const { width = 1, height = 1 } = imageSize(img);
+        return [Math.round((width * SIGNATURE_HEIGHT_PX) / height), SIGNATURE_HEIGHT_PX];
+      } catch {
+        return [1, 1];
+      }
+    },
+  });
+}
+
+/** Fill a DOCX template (docxtemplater {tags}, {%image} tags) with form data. */
 export async function fillDocx(templateFile: string, data: Record<string, string>): Promise<Buffer> {
   const src = await fs.readFile(path.join(TPL_DIR, templateFile));
   const zip = new PizZip(src);
   const doc = new Docxtemplater(zip, {
     paragraphLoop: true,
     linebreaks: true,
+    modules: [imageModule()],
     nullGetter: () => '', // missing fields render blank, never "undefined"
   });
   doc.render(data);

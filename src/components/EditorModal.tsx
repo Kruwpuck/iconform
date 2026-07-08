@@ -79,6 +79,16 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
     reader.readAsDataURL(file);
   }
 
+  // ttd/stempel live inside `data` → fill the {%ttd}/{%stempel} tags and
+  // persist via contentHtml with zero API changes
+  function handleImageField(e: React.ChangeEvent<HTMLInputElement>, key: string) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setField(key, ev.target?.result as string);
+    reader.readAsDataURL(file);
+  }
+
   function handleFilenameChange(e: React.ChangeEvent<HTMLInputElement>) {
     dirtyRef.current = true;
     setFilename(e.target.value);
@@ -175,6 +185,29 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
                     onChange={(e) => setField(f.name, e.target.value)}
                     className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
                   />
+                )}
+              </div>
+            ))}
+
+            {([['ttd', 'Upload Tanda Tangan'], ['stempel', 'Upload Stempel']] as const).map(([key, label]) => (
+              <div key={key} className="border-t pt-3">
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-600 cursor-pointer w-fit">
+                  <ImagePlus size={16} />
+                  {label}
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageField(e, key)} />
+                </label>
+                <p className="text-xs text-slate-400 mt-0.5">Muncul di posisi tanda tangan dokumen.</p>
+                {data[key] && (
+                  <div className="mt-2 flex items-center gap-3">
+                    <img src={data[key]} alt={label} className="max-h-16 border rounded" />
+                    <button
+                      type="button"
+                      onClick={() => setField(key, '')}
+                      className="text-xs text-red-500 hover:text-red-600"
+                    >
+                      Hapus
+                    </button>
+                  </div>
                 )}
               </div>
             ))}
