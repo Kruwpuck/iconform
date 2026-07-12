@@ -1,7 +1,7 @@
 import { type TemplateType, type FolderType } from '@prisma/client';
 
 /** how a date input value expands into document tags */
-export type DateKind = 'weekday' | 'day' | 'month' | 'yearWords' | 'yearWordsDMY' | 'long';
+export type DateKind = 'weekday' | 'day' | 'month' | 'yearWords' | 'yearWordsDMY' | 'long' | 'year';
 
 export type TemplateField = {
   name: string;
@@ -22,6 +22,8 @@ export type TemplateDef = {
   file: string;
   /** BA Pengujian: partner logo upload, stored beside the document in Drive */
   allowLogo?: boolean;
+  /** NODIN: no signature area, hide TTD/stempel uploads */
+  noSignature?: boolean;
   fields: TemplateField[];
   suggestName: (data: Record<string, string>) => string | null;
 };
@@ -54,6 +56,7 @@ export function formatDate(kind: DateKind, iso: string): string {
       return `${yearWords(d.getFullYear())} (${dd}-${mm}-${d.getFullYear()})`;
     }
     case 'long': return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+    case 'year': return String(d.getFullYear());
   }
 }
 
@@ -82,6 +85,7 @@ const BAI_FIELDS: TemplateField[] = [
   { name: 'alamatKantor', label: 'Wakil Pelanggan — Alamat Kantor' },
   { name: 'kontakWakil', label: 'Wakil Pelanggan — Telp/HP, Email' },
   { name: 'instansiPelanggan', label: 'Instansi Penandatangan' },
+  { name: 'namaProjectLeader', label: 'Nama Project Team Leader (PLN Icon Plus)' },
 ];
 
 export const TEMPLATES: TemplateDef[] = [
@@ -102,6 +106,8 @@ export const TEMPLATES: TemplateDef[] = [
       { name: '_tglSelesai', label: 'Tanggal Tugas — Selesai', type: 'date', dateMaps: { tanggalTugasSelesai: 'long' } },
       { name: 'lokasi', label: 'Lokasi' },
       { name: '_tglSurat', label: 'Tanggal Surat', type: 'date', dateMaps: { tanggalSurat: 'long' } },
+      { name: 'namaPemberi', label: 'Pemberi Tugas — Nama' },
+      { name: 'jabatanPemberi', label: 'Pemberi Tugas — Jabatan', default: 'Engineer Pembangunan dan Delivery Layanan' },
     ],
     suggestName: (d) => (d.nomor ? 'Surat_Tugas_' + clean(d.nomor) : null),
   },
@@ -134,7 +140,7 @@ export const TEMPLATES: TemplateDef[] = [
     folder: 'BERITA_ACARA',
     file: 'BAKL.docx',
     fields: [
-      { name: '_tglPelaksanaan', label: 'Tanggal Pelaksanaan', type: 'date', dateMaps: { hari: 'weekday', tanggal: 'day', bulan: 'month' } },
+      { name: '_tglPelaksanaan', label: 'Tanggal Pelaksanaan', type: 'date', dateMaps: { hari: 'weekday', tanggal: 'day', bulan: 'month', tahun: 'year' } },
       { name: 'namaLayanan', label: 'Nama Layanan' },
       { name: 'noPA', label: 'No PA' },
       { name: 'wakilPihakPertama', label: 'PLN Icon Plus — Diwakili Oleh' },
@@ -202,6 +208,8 @@ export const TEMPLATES: TemplateDef[] = [
       { name: 'jarakOTDR', label: 'Jarak OTDR' },
       { name: 'instansiPelanggan', label: 'Instansi Penandatangan' },
       { name: '_tglBA', label: 'Tanggal Berita Acara', type: 'date', dateMaps: { tanggalBA: 'long' } },
+      { name: 'namaWakilPelanggan', label: 'Wakil Pelanggan — Nama (untuk TTD)' },
+      { name: 'namaWakilIcon', label: 'Wakil PLN Icon Plus — Nama (untuk TTD)' },
     ],
     suggestName: (d) => (d.noSalesOrder ? 'BAP_' + clean(d.noSalesOrder) : null),
   },
@@ -234,17 +242,40 @@ export const TEMPLATES: TemplateDef[] = [
     description: 'Nota Dinas permohonan pembayaran dana dropping',
     folder: 'BERITA_ACARA', // ponytail: reuse existing FolderType; Drive routing is per-template anyway
     file: 'NODIN.docx',
+    noSignature: true,
     fields: [
       { name: 'perihal', label: 'Perihal' },
       { name: 'pekerjaan', label: 'Pekerjaan yang Telah Dilaksanakan' },
       { name: 'tim', label: 'Tim Pelaksana (dari)' },
       { name: 'prk', label: 'No PRK' },
       { name: 'coa', label: 'COA' },
-      { name: 'material', label: 'Material' },
-      { name: 'vol', label: 'Volume' },
-      { name: 'satuan', label: 'Satuan' },
-      { name: 'hargaSatuan', label: 'Harga Satuan (Rp)' },
-      { name: 'jumlahTotal', label: 'Jumlah Total (Rp)' },
+      { name: 'miDana', label: 'MI Dana Dropping', default: 'MI Dana Dropping SBU Regional 030117/MI/008/PUSAT/ICON+/2017' },
+      { name: 'miList', label: 'MI List Material', default: 'MI List Material Dropping No.' },
+      { name: 'material1', label: 'Material 1' },
+      { name: 'vol1', label: 'Volume 1' },
+      { name: 'satuan1', label: 'Satuan 1' },
+      { name: 'hargaSatuan1', label: 'Harga Satuan 1 (Rp)' },
+      { name: 'jumlahTotal1', label: 'Jumlah Total 1 (Rp)' },
+      { name: 'material2', label: 'Material 2 (opsional)' },
+      { name: 'vol2', label: 'Volume 2' },
+      { name: 'satuan2', label: 'Satuan 2' },
+      { name: 'hargaSatuan2', label: 'Harga Satuan 2 (Rp)' },
+      { name: 'jumlahTotal2', label: 'Jumlah Total 2 (Rp)' },
+      { name: 'material3', label: 'Material 3 (opsional)' },
+      { name: 'vol3', label: 'Volume 3' },
+      { name: 'satuan3', label: 'Satuan 3' },
+      { name: 'hargaSatuan3', label: 'Harga Satuan 3 (Rp)' },
+      { name: 'jumlahTotal3', label: 'Jumlah Total 3 (Rp)' },
+      { name: 'material4', label: 'Material 4 (opsional)' },
+      { name: 'vol4', label: 'Volume 4' },
+      { name: 'satuan4', label: 'Satuan 4' },
+      { name: 'hargaSatuan4', label: 'Harga Satuan 4 (Rp)' },
+      { name: 'jumlahTotal4', label: 'Jumlah Total 4 (Rp)' },
+      { name: 'material5', label: 'Material 5 (opsional)' },
+      { name: 'vol5', label: 'Volume 5' },
+      { name: 'satuan5', label: 'Satuan 5' },
+      { name: 'hargaSatuan5', label: 'Harga Satuan 5 (Rp)' },
+      { name: 'jumlahTotal5', label: 'Jumlah Total 5 (Rp)' },
       { name: 'totalTagihan', label: 'Total Tagihan (Rp)' },
     ],
     suggestName: (d) =>

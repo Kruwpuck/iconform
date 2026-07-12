@@ -10,9 +10,12 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const template = body?.template as string | undefined;
   const data = (body?.data ?? {}) as Record<string, string>;
+  const logo = body?.logo as string | null | undefined;
 
   const def = template ? templateById(template) : undefined;
   if (!def) return NextResponse.json({ error: 'invalid template' }, { status: 400 });
+
+  if (logo) data.logoMitra = logo;
 
   // format=pages → PNG per page for the drag-to-position preview
   // blank images so the PDF has no marks baked in; UI overlay renders them

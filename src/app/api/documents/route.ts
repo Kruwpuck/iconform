@@ -54,7 +54,7 @@ export async function POST(req: Request) {
   const folderId = await prepareTargetFolder(def.id, def.folder, filename, logo);
   if (!folderId) return NextResponse.json({ error: 'Drive folder ID not configured' }, { status: 500 });
 
-  // server-side generation from the original DOCX master — exact layout
+  if (logo) data.logoMitra = logo;
   const { docx: docxBuf, pdf: pdfBuf } = await generateDoc(def.file, data);
 
   const [pdf, docx] = await Promise.all([

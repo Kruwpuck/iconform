@@ -46,6 +46,7 @@ export async function PUT(req: Request, { params }: Params) {
   const folderId = await prepareTargetFolder(def.id, def.folder, filename, logo);
   if (!folderId) return NextResponse.json({ error: 'Drive folder ID not configured' }, { status: 500 });
 
+  if (logo) data.logoMitra = logo;
   const { docx: docxBuf, pdf: pdfBuf } = await generateDoc(def.file, data);
 
   const [pdf, docx] = await Promise.all([

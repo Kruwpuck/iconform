@@ -80,9 +80,20 @@ export async function fillDocx(templateFile: string, data: Record<string, string
     paragraphLoop: true,
     linebreaks: true,
     modules: [imageModule()],
-    nullGetter: () => '', // missing fields render blank, never "undefined"
+    nullGetter: () => '',
   });
-  doc.render(data);
+  // NODIN: assemble items array from flat material1..5 fields for {#items} loop
+  const renderData: Record<string, unknown> = { ...data };
+  if ('material1' in data) {
+    renderData.items = Array.from({ length: 5 }, (_, i) => ({
+      material: data[`material${i + 1}`] || '',
+      vol: data[`vol${i + 1}`] || '',
+      satuan: data[`satuan${i + 1}`] || '',
+      hargaSatuan: data[`hargaSatuan${i + 1}`] || '',
+      jumlahTotal: data[`jumlahTotal${i + 1}`] || '',
+    })).filter((row) => row.material);
+  }
+  doc.render(renderData);
   return doc.getZip().generate({ type: 'nodebuffer' }) as Buffer;
 }
 

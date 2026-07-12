@@ -153,7 +153,7 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
       const res = await fetch('/api/documents/preview?format=pages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ template: template.id, data }),
+        body: JSON.stringify({ template: template.id, data, logo }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -240,7 +240,7 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
               </div>
             ))}
 
-            {([['ttd', 'Upload Tanda Tangan'], ['stempel', 'Upload Stempel']] as const).map(([key, label]) => (
+            {!template.noSignature && ([['ttd', 'Upload Tanda Tangan'], ['stempel', 'Upload Stempel']] as const).map(([key, label]) => (
               <div key={key} className="border-t pt-3">
                 <label className="flex items-center gap-2 text-sm font-medium text-slate-600 cursor-pointer w-fit">
                   <ImagePlus size={16} />
@@ -286,7 +286,7 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
                 return (
                   <div key={pi} className="relative" style={{ userSelect: 'none' }}>
                     <img src={src} className="w-full block" alt={`Halaman ${pageNum}`} />
-                    {(['ttd', 'stempel'] as const).map((key) => {
+                    {!template.noSignature && (['ttd', 'stempel'] as const).map((key) => {
                       const pos = parsePos(data[key + 'Pos']);
                       if (!pos || pos.page !== pageNum || !data[key]) return null;
                       const h = 45 * parseFloat(data[key + 'Size'] || '1');
