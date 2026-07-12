@@ -1,0 +1,251 @@
+- generic [ref=e1]:
+  - alert [ref=e17]
+  - generic [ref=e18]:
+    - complementary [ref=e19]:
+      - generic [ref=e20]:
+        - generic [ref=e21]: PLN
+        - generic [ref=e22]: iconplus
+      - heading "ICONFORM" [level=2] [ref=e23]
+      - navigation [ref=e24]:
+        - link "Dashboard" [ref=e25] [cursor=pointer]:
+          - /url: /
+      - button "Keluar" [ref=e32] [cursor=pointer]
+    - main [ref=e36]:
+      - generic [ref=e37]:
+        - heading "Dashboard ICONFORM" [level=1] [ref=e38]
+        - generic [ref=e40]:
+          - button "Folder Surat Tugas 2 dokumen tersimpan" [ref=e41] [cursor=pointer]:
+            - generic [ref=e42]: Folder Surat Tugas
+            - paragraph [ref=e46]: "2"
+            - paragraph [ref=e47]: dokumen tersimpan
+          - button "Folder Berita Acara 2 dokumen tersimpan" [ref=e48] [cursor=pointer]:
+            - generic [ref=e49]: Folder Berita Acara
+            - paragraph [ref=e53]: "2"
+            - paragraph [ref=e54]: dokumen tersimpan
+        - generic [ref=e55]:
+          - heading "Buat Dokumen Baru" [level=2] [ref=e56]
+          - generic [ref=e57]:
+            - generic [ref=e58]:
+              - generic [ref=e59]:
+                - paragraph [ref=e60]: Surat Tugas
+                - paragraph [ref=e61]: Surat penugasan staf PLN Icon Plus SBU Regional Jawa Barat
+              - button "Gunakan Template" [ref=e62] [cursor=pointer]
+            - generic [ref=e65]:
+              - generic [ref=e66]:
+                - paragraph [ref=e67]: BAI (BAI-BAA)
+                - paragraph [ref=e68]: Berita Acara Instalasi – Aktivasi
+              - button "Gunakan Template" [ref=e69] [cursor=pointer]
+            - generic [ref=e72]:
+              - generic [ref=e73]:
+                - paragraph [ref=e74]: BAI UID JABAR
+                - paragraph [ref=e75]: BAI-BAA untuk PT PLN (Persero) Unit Induk Distribusi Jawa Barat
+              - button "Gunakan Template" [ref=e76] [cursor=pointer]
+            - generic [ref=e79]:
+              - generic [ref=e80]:
+                - paragraph [ref=e81]: BAKL
+                - paragraph [ref=e82]: Berita Acara Kendala Lapangan
+              - button "Gunakan Template" [ref=e83] [cursor=pointer]
+            - generic [ref=e86]:
+              - generic [ref=e87]:
+                - paragraph [ref=e88]: BA Pengujian
+                - paragraph [ref=e89]: Berita Acara Hasil Pengujian
+              - button "Gunakan Template" [ref=e90] [cursor=pointer]
+            - generic [ref=e93]:
+              - generic [ref=e94]:
+                - paragraph [ref=e95]: BAP
+                - paragraph [ref=e96]: Berita Acara Pemakaian
+              - button "Gunakan Template" [ref=e97] [cursor=pointer]
+            - generic [ref=e100]:
+              - generic [ref=e101]:
+                - paragraph [ref=e102]: BAST
+                - paragraph [ref=e103]: Berita Acara Serah Terima Barang
+              - button "Gunakan Template" [ref=e104] [cursor=pointer]
+            - generic [ref=e107]:
+              - generic [ref=e108]:
+                - paragraph [ref=e109]: Nota Dinas
+                - paragraph [ref=e110]: Nota Dinas permohonan pembayaran dana dropping
+              - button "Gunakan Template" [active] [ref=e111] [cursor=pointer]
+        - generic [ref=e114]:
+          - searchbox "Cari nama berkas…" [ref=e116]
+          - table [ref=e118]:
+            - rowgroup [ref=e119]:
+              - row [ref=e120]:
+                - columnheader "Nama Berkas" [ref=e121]
+                - columnheader "Lokasi Folder" [ref=e122]
+                - columnheader "Tanggal Diarsip" [ref=e123]
+                - columnheader "Aksi" [ref=e124]
+            - rowgroup [ref=e125]:
+              - row [ref=e126]:
+                - cell "testing" [ref=e127]
+                - cell "Folder Berita Acara" [ref=e128]
+                - cell "6 Juli 2026" [ref=e129]
+                - cell [ref=e130]:
+                  - generic [ref=e131]:
+                    - link "Download PDF" [ref=e132] [cursor=pointer]:
+                      - /url: /api/documents/cmr8t9ovl0001oe09lcmsc4vn/download?type=pdf
+                    - link "Download DOCX" [ref=e137] [cursor=pointer]:
+                      - /url: /api/documents/cmr8t9ovl0001oe09lcmsc4vn/download?type=docx
+                    - button "Edit" [ref=e141] [cursor=pointer]
+                    - button "Hapus" [ref=e145] [cursor=pointer]
+              - row [ref=e149]:
+                - cell "adas" [ref=e150]
+                - cell "Folder Surat Tugas" [ref=e151]
+                - cell "5 Juli 2026" [ref=e152]
+                - cell [ref=e153]:
+                  - generic [ref=e154]:
+                    - link "Download PDF" [ref=e155] [cursor=pointer]:
+                      - /url: /api/documents/cmr7rvi7g00011qfie15y8x9w/download?type=pdf
+                    - link "Download DOCX" [ref=e160] [cursor=pointer]:
+                      - /url: /api/documents/cmr7rvi7g00011qfie15y8x9w/download?type=docx
+                    - button "Edit" [ref=e164] [cursor=pointer]
+                    - button "Hapus" [ref=e168] [cursor=pointer]
+              - row [ref=e172]:
+                - cell "cobaa" [ref=e173]
+                - cell "Folder Berita Acara" [ref=e174]
+                - cell "5 Juli 2026" [ref=e175]
+                - cell [ref=e176]:
+                  - generic [ref=e177]:
+                    - link "Download PDF" [ref=e178] [cursor=pointer]:
+                      - /url: /api/documents/cmr7rg7so0001yhfp8zbt8pxq/download?type=pdf
+                    - link "Download DOCX" [ref=e183] [cursor=pointer]:
+                      - /url: /api/documents/cmr7rg7so0001yhfp8zbt8pxq/download?type=docx
+                    - button "Edit" [ref=e187] [cursor=pointer]
+                    - button "Hapus" [ref=e191] [cursor=pointer]
+              - row [ref=e195]:
+                - cell "adsdasd" [ref=e196]
+                - cell "Folder Surat Tugas" [ref=e197]
+                - cell "5 Juli 2026" [ref=e198]
+                - cell [ref=e199]:
+                  - generic [ref=e200]:
+                    - link "Download PDF" [ref=e201] [cursor=pointer]:
+                      - /url: /api/documents/cmr7qc1av000110xaleszqfq6/download?type=pdf
+                    - link "Download DOCX" [ref=e206] [cursor=pointer]:
+                      - /url: /api/documents/cmr7qc1av000110xaleszqfq6/download?type=docx
+                    - button "Edit" [ref=e210] [cursor=pointer]
+                    - button "Hapus" [ref=e214] [cursor=pointer]
+          - generic [ref=e218]:
+            - generic [ref=e219]: 4 dokumen
+            - generic [ref=e220]:
+              - button "← Prev" [disabled] [ref=e221]
+              - generic [ref=e222]: Halaman 1 dari 1
+              - button "Next →" [disabled] [ref=e223]
+        - generic [ref=e225]:
+          - generic [ref=e226]:
+            - generic [ref=e227]:
+              - heading "Nota Dinas" [level=2] [ref=e228]
+              - text: Folder Berita Acara
+            - button [ref=e229] [cursor=pointer]
+          - generic [ref=e233]:
+            - generic [ref=e234]:
+              - generic [ref=e235]:
+                - generic [ref=e236]: Perihal
+                - textbox [ref=e237]
+              - generic [ref=e238]:
+                - generic [ref=e239]: Pekerjaan yang Telah Dilaksanakan
+                - textbox [ref=e240]
+              - generic [ref=e241]:
+                - generic [ref=e242]: Tim Pelaksana (dari)
+                - textbox [ref=e243]
+              - generic [ref=e244]:
+                - generic [ref=e245]: No PRK
+                - textbox [ref=e246]
+              - generic [ref=e247]:
+                - generic [ref=e248]: COA
+                - textbox [ref=e249]
+              - generic [ref=e250]:
+                - generic [ref=e251]: MI Dana Dropping
+                - textbox [ref=e252]: MI Dana Dropping SBU Regional 030117/MI/008/PUSAT/ICON+/2017
+              - generic [ref=e253]:
+                - generic [ref=e254]: MI List Material
+                - textbox [ref=e255]: MI List Material Dropping No.
+              - generic [ref=e256]:
+                - generic [ref=e257]: Material 1
+                - textbox [ref=e258]
+              - generic [ref=e259]:
+                - generic [ref=e260]: Volume 1
+                - textbox [ref=e261]
+              - generic [ref=e262]:
+                - generic [ref=e263]: Satuan 1
+                - textbox [ref=e264]
+              - generic [ref=e265]:
+                - generic [ref=e266]: Harga Satuan 1 (Rp)
+                - textbox [ref=e267]
+              - generic [ref=e268]:
+                - generic [ref=e269]: Jumlah Total 1 (Rp)
+                - textbox [ref=e270]
+              - generic [ref=e271]:
+                - generic [ref=e272]: Material 2 (opsional)
+                - textbox [ref=e273]
+              - generic [ref=e274]:
+                - generic [ref=e275]: Volume 2
+                - textbox [ref=e276]
+              - generic [ref=e277]:
+                - generic [ref=e278]: Satuan 2
+                - textbox [ref=e279]
+              - generic [ref=e280]:
+                - generic [ref=e281]: Harga Satuan 2 (Rp)
+                - textbox [ref=e282]
+              - generic [ref=e283]:
+                - generic [ref=e284]: Jumlah Total 2 (Rp)
+                - textbox [ref=e285]
+              - generic [ref=e286]:
+                - generic [ref=e287]: Material 3 (opsional)
+                - textbox [ref=e288]
+              - generic [ref=e289]:
+                - generic [ref=e290]: Volume 3
+                - textbox [ref=e291]
+              - generic [ref=e292]:
+                - generic [ref=e293]: Satuan 3
+                - textbox [ref=e294]
+              - generic [ref=e295]:
+                - generic [ref=e296]: Harga Satuan 3 (Rp)
+                - textbox [ref=e297]
+              - generic [ref=e298]:
+                - generic [ref=e299]: Jumlah Total 3 (Rp)
+                - textbox [ref=e300]
+              - generic [ref=e301]:
+                - generic [ref=e302]: Material 4 (opsional)
+                - textbox [ref=e303]
+              - generic [ref=e304]:
+                - generic [ref=e305]: Volume 4
+                - textbox [ref=e306]
+              - generic [ref=e307]:
+                - generic [ref=e308]: Satuan 4
+                - textbox [ref=e309]
+              - generic [ref=e310]:
+                - generic [ref=e311]: Harga Satuan 4 (Rp)
+                - textbox [ref=e312]
+              - generic [ref=e313]:
+                - generic [ref=e314]: Jumlah Total 4 (Rp)
+                - textbox [ref=e315]
+              - generic [ref=e316]:
+                - generic [ref=e317]: Material 5 (opsional)
+                - textbox [ref=e318]
+              - generic [ref=e319]:
+                - generic [ref=e320]: Volume 5
+                - textbox [ref=e321]
+              - generic [ref=e322]:
+                - generic [ref=e323]: Satuan 5
+                - textbox [ref=e324]
+              - generic [ref=e325]:
+                - generic [ref=e326]: Harga Satuan 5 (Rp)
+                - textbox [ref=e327]
+              - generic [ref=e328]:
+                - generic [ref=e329]: Jumlah Total 5 (Rp)
+                - textbox [ref=e330]
+              - generic [ref=e331]:
+                - generic [ref=e332]: Total Tagihan (Rp)
+                - textbox [ref=e333]
+            - generic [ref=e334]:
+              - paragraph [ref=e336]: Isi formulir lalu klik Preview — dokumen dirender dari template asli (hasil 100% sama dengan file Word/PDF final).
+              - button "Preview" [ref=e337] [cursor=pointer]
+              - generic [ref=e341]:
+                - generic [ref=e342]:
+                  - generic [ref=e343]: Nama File Hasil Dokumen
+                  - textbox "Nama file akan terisi otomatis…" [ref=e344]
+                - generic [ref=e345]:
+                  - generic [ref=e346]: Folder Tujuan Otomatis
+                  - textbox [ref=e347]: Folder Berita Acara
+              - generic [ref=e348]:
+                - button "Batal" [ref=e349] [cursor=pointer]
+                - button "Simpan ke Folder" [ref=e350] [cursor=pointer]
