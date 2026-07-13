@@ -125,7 +125,7 @@ export const TEMPLATES: TemplateDef[] = [
     label: 'BAI UID JABAR',
     description: 'BAI-BAA untuk PT PLN (Persero) Unit Induk Distribusi Jawa Barat',
     folder: 'BERITA_ACARA',
-    file: 'BAI.docx', // same master; pelanggan pre-filled below
+    file: 'UID_JABAR.docx',
     fields: BAI_FIELDS.map((f) =>
       f.name === 'namaPelanggan' || f.name === 'instansiPelanggan'
         ? { ...f, default: 'PT. PLN (PERSERO) UNIT INDUK DISTRIBUSI JAWA BARAT' }
