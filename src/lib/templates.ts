@@ -109,7 +109,7 @@ export const TEMPLATES: TemplateDef[] = [
       { name: 'namaPemberi', label: 'Pemberi Tugas — Nama' },
       { name: 'jabatanPemberi', label: 'Pemberi Tugas — Jabatan', default: 'Engineer Pembangunan dan Delivery Layanan' },
     ],
-    suggestName: (d) => (d.nomor ? 'Surat_Tugas_' + clean(d.nomor) : null),
+    suggestName: (d) => (d.nama1 ? clean(d.nama1) : null),
   },
   {
     id: 'BAI',
@@ -118,7 +118,7 @@ export const TEMPLATES: TemplateDef[] = [
     folder: 'BERITA_ACARA',
     file: 'BAI.docx',
     fields: BAI_FIELDS,
-    suggestName: (d) => (d.noPA ? 'BAI_' + clean(d.noPA) : d.serviceId ? 'BAI_' + clean(d.serviceId) : null),
+    suggestName: (d) => (d.noPA ? 'Surat_BAI_' + clean(d.noPA) : d.serviceId ? 'Surat_BAI_' + clean(d.serviceId) : null),
   },
   {
     id: 'UID_JABAR',
@@ -179,8 +179,8 @@ export const TEMPLATES: TemplateDef[] = [
       { name: 'jabatanPihakKedua', label: 'Pihak Kedua — Jabatan' },
     ],
     suggestName: (d) =>
-      d.nomor ? 'BA_Pengujian_' + clean(d.nomor)
-      : d.instansiPihakPertama ? 'BA_Pengujian_' + clean(d.instansiPihakPertama).replace(/[^a-zA-Z0-9_-]/g, '')
+      d.instansiPihakPertama ? 'BAHP_' + clean(d.instansiPihakPertama)
+      : d.nomor ? 'BAHP_' + clean(d.nomor)
       : null,
   },
   {
@@ -234,7 +234,7 @@ export const TEMPLATES: TemplateDef[] = [
       { name: 'jumlah', label: 'Jumlah' },
       { name: 'biaya', label: 'Jenis Biaya (dasar penagihan)' },
     ],
-    suggestName: (d) => (d.nomor ? 'BAST_' + clean(d.nomor) : null),
+    suggestName: (d) => (d.perangkat ? 'BAST_' + clean(d.perangkat) : null),
   },
   {
     id: 'NODIN',
