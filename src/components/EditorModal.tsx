@@ -21,6 +21,27 @@ type Props = {
   onSaved: () => void;
 };
 
+const DRAFT_KEY = (id: string) => `iconform_draft_${id}`;
+
+function loadDraft(templateId: string): { data: Record<string, string>; filename: string; logo: string | null } | null {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY(templateId));
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveDraft(templateId: string, data: Record<string, string>, filename: string, logo: string | null) {
+  try {
+    localStorage.setItem(DRAFT_KEY(templateId), JSON.stringify({ data, filename, logo }));
+  } catch { /* storage full — ignore */ }
+}
+
+function clearDraft(templateId: string) {
+  try { localStorage.removeItem(DRAFT_KEY(templateId)); } catch { /* ignore */ }
+}
+
 function initialData(template: TemplateDef, existingDoc?: ExistingDoc): Record<string, string> {
   let saved: Record<string, string> = {};
   if (existingDoc) {
@@ -38,19 +59,28 @@ function initialData(template: TemplateDef, existingDoc?: ExistingDoc): Record<s
 }
 
 export default function EditorModal({ template, existingDoc, onClose, onSaved }: Props) {
-  const dirtyRef = useRef(!!existingDoc);
-  const [data, setData] = useState<Record<string, string>>(() => initialData(template, existingDoc));
-  const [logo, setLogo] = useState<string | null>(existingDoc?.logoBase64 ?? null);
-  const [filename, setFilename] = useState(existingDoc?.filename ?? '');
+  const draft = !existingDoc ? loadDraft(template.id) : null;
+  const dirtyRef = useRef(!!(existingDoc || draft?.filename));
+  const [data, setData] = useState<Record<string, string>>(() =>
+    draft?.data ?? initialData(template, existingDoc)
+  );
+  const [logo, setLogo] = useState<string | null>(draft?.logo ?? existingDoc?.logoBase64 ?? null);
+  const [filename, setFilename] = useState(draft?.filename ?? existingDoc?.filename ?? '');
   const [pages, setPages] = useState<string[]>([]);
   const [previewing, setPreviewing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  // Escape to close
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
+
   function setField(name: string, value: string) {
     setData((prev) => {
       const next = { ...prev, [name]: value };
-      // date fields fan out into the document's hari/tanggal/bulan/tahun tags
       const f = template.fields.find((x) => x.name === name);
       if (f?.type === 'date' && f.dateMaps) {
         for (const [tag, kind] of Object.entries(f.dateMaps)) {
@@ -61,6 +91,7 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
         const suggested = template.suggestName(next);
         if (suggested) setFilename(suggested);
       }
+      if (!existingDoc) saveDraft(template.id, next, filename, logo);
       return next;
     });
   }
@@ -69,7 +100,11 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => setLogo(ev.target?.result as string);
+    reader.onload = (ev) => {
+      const newLogo = ev.target?.result as string;
+      setLogo(newLogo);
+      if (!existingDoc) saveDraft(template.id, data, filename, newLogo);
+    };
     reader.readAsDataURL(file);
   }
 
@@ -144,6 +179,7 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
   function handleFilenameChange(e: React.ChangeEvent<HTMLInputElement>) {
     dirtyRef.current = true;
     setFilename(e.target.value);
+    if (!existingDoc) saveDraft(template.id, data, e.target.value, logo);
   }
 
   async function handlePreview() {
@@ -188,6 +224,7 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
         throw new Error(resData.error ?? `HTTP ${res.status}`);
       }
 
+      clearDraft(template.id);
       onSaved();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal menyimpan dokumen.');
@@ -199,8 +236,8 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
   const folderLabel = template.folder === 'SURAT_TUGAS' ? 'Folder Surat Tugas' : 'Folder Berita Acara';
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl w-full max-w-5xl max-h-[92vh] overflow-y-auto shadow-2xl">
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl w-full max-w-5xl max-h-[92vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <div>
