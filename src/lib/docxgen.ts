@@ -50,7 +50,7 @@ const MARK_HEIGHT_PT = 33.75; // = SIGNATURE_HEIGHT_PX at 96 dpi
 
 /** Stamp dragged ttd/stempel onto the PDF at their preview positions. */
 async function stampSignatures(pdf: Buffer, data: Record<string, string>): Promise<Buffer> {
-  const marks = (['ttd', 'stempel'] as const)
+  const marks = (['ttd', 'stempel', 'ttd2', 'stempel2'] as const)
     .map((k) => ({ img: data[k], pos: parsePos(data[k + 'Pos']), scale: parseFloat(data[k + 'Size'] || '1') }))
     .filter((m) => m.img && m.pos);
   if (!marks.length) return pdf;
@@ -82,9 +82,16 @@ export async function fillDocx(templateFile: string, data: Record<string, string
     modules: [imageModule()],
     nullGetter: () => '',
   });
-  // NODIN: assemble items array from flat material1..5 fields for {#items} loop
   const renderData: Record<string, unknown> = { ...data };
-  if ('material1' in data) {
+  // Decode _group_* JSON arrays → docxtemplater loop arrays
+  for (const [key, val] of Object.entries(data)) {
+    if (key.startsWith('_group_')) {
+      const gName = key.slice(7);
+      try { renderData[gName] = JSON.parse(val); } catch { renderData[gName] = []; }
+    }
+  }
+  // Legacy NODIN compat: flat material1..5 fields → items array
+  if ('material1' in data && !('_group_items' in data)) {
     renderData.items = Array.from({ length: 5 }, (_, i) => ({
       material: data[`material${i + 1}`] || '',
       vol: data[`vol${i + 1}`] || '',
@@ -92,6 +99,14 @@ export async function fillDocx(templateFile: string, data: Record<string, string
       hargaSatuan: data[`hargaSatuan${i + 1}`] || '',
       jumlahTotal: data[`jumlahTotal${i + 1}`] || '',
     })).filter((row) => row.material);
+  }
+  // Legacy BAKL: kendala1/2/3 → kendala array
+  if ('kendala1' in data && !('_group_kendala' in data)) {
+    renderData.kendala = [1, 2, 3].map(i => ({ kendala: data[`kendala${i}`] || '' })).filter(r => r.kendala);
+  }
+  // Legacy SURAT_TUGAS: nama1/2/3 → petugas array
+  if ('nama1' in data && !('_group_petugas' in data)) {
+    renderData.petugas = [1, 2, 3].map(i => ({ nama: data[`nama${i}`] || '' })).filter(r => r.nama);
   }
   doc.render(renderData);
   return doc.getZip().generate({ type: 'nodebuffer' }) as Buffer;

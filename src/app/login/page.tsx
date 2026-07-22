@@ -31,10 +31,8 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-sky-800 to-teal-700 flex items-center justify-center p-4">
       <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl p-8 w-full max-w-md">
-        {/* PLN Icon Plus badge */}
-        <div className="flex items-center justify-center gap-0 mb-6">
-          <span className="bg-amber-500 text-black font-bold px-2 py-1 rounded-l text-sm select-none">PLN</span>
-          <span className="bg-sky-400 text-black font-semibold px-2 py-1 rounded-r text-sm select-none">iconplus</span>
+        <div className="flex justify-center mb-6">
+          <img src="/icon2.png" alt="PLN Icon Plus" className="h-14 w-auto" />
         </div>
 
         <h1 className="text-3xl font-bold text-center text-slate-800 mb-1">ICONFORM</h1>

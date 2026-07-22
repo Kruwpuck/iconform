@@ -13,11 +13,13 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const search = searchParams.get('search') ?? '';
   const folder = searchParams.get('folder') as FolderType | null;
+  const templateParam = searchParams.get('template') as TemplateType | null;
   const page = Math.max(1, Number(searchParams.get('page') ?? '1'));
   const pageSize = Math.min(100, Math.max(1, Number(searchParams.get('pageSize') ?? '10')));
 
   const where = {
     ...(folder && Object.values(FolderType).includes(folder) ? { folder } : {}),
+    ...(templateParam && Object.values(TemplateType).includes(templateParam) ? { template: templateParam } : {}),
     filename: { contains: search, mode: 'insensitive' as const },
   };
 

@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { FileDown, FileText, Pencil, Trash2 } from 'lucide-react';
-import type { Document, FolderType } from '@prisma/client';
+import type { Document, FolderType, TemplateType } from '@prisma/client';
 import type { ExistingDoc } from './EditorModal';
 
 type Props = {
   activeFolder: FolderType | null;
+  activeTemplate?: TemplateType | null;
   onEditDoc: (doc: ExistingDoc) => void;
   onCountsChange: (counts: { ST: number; BA: number }) => void;
 };
@@ -14,7 +15,7 @@ type Props = {
 export type TableHandle = { refresh: () => void };
 
 const DocumentsTable = forwardRef<TableHandle, Props>(function DocumentsTable(
-  { activeFolder, onEditDoc, onCountsChange },
+  { activeFolder, activeTemplate, onEditDoc, onCountsChange },
   ref
 ) {
   const [docs, setDocs] = useState<Document[]>([]);
@@ -34,6 +35,7 @@ const DocumentsTable = forwardRef<TableHandle, Props>(function DocumentsTable(
           page: String(pageVal),
           pageSize: String(PAGE_SIZE),
           ...(folder ? { folder } : {}),
+          ...(activeTemplate ? { template: activeTemplate } : {}),
         });
         const res = await fetch(`/api/documents?${params}`);
         if (!res.ok) return;

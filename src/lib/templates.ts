@@ -13,6 +13,16 @@ export type TemplateField = {
   dateMaps?: Record<string, DateKind>;
 };
 
+export type RepeatSubField = { name: string; label: string; multiline?: boolean; type?: 'number' };
+
+/** A dynamic list group rendered with +/− rows in the UI, stored as JSON in data._group_{name} */
+export type RepeatGroup = {
+  name: string;        // {#name}…{/name} loop in DOCX
+  label: string;
+  subFields: RepeatSubField[];
+  minRows?: number;    // default 1
+};
+
 export type TemplateDef = {
   id: TemplateType;
   label: string;
@@ -24,7 +34,10 @@ export type TemplateDef = {
   allowLogo?: boolean;
   /** NODIN: no signature area, hide TTD/stempel uploads */
   noSignature?: boolean;
+  /** Templates with two signing parties (enables ttd2/stempel2 upload) */
+  twoParties?: boolean;
   fields: TemplateField[];
+  repeatGroups?: RepeatGroup[];
   suggestName: (data: Record<string, string>) => string | null;
 };
 
@@ -97,9 +110,6 @@ export const TEMPLATES: TemplateDef[] = [
     file: 'SURAT_TUGAS.docx',
     fields: [
       { name: 'nomor', label: 'Nomor Surat' },
-      { name: 'nama1', label: 'Nama Petugas 1' },
-      { name: 'nama2', label: 'Nama Petugas 2' },
-      { name: 'nama3', label: 'Nama Petugas 3' },
       { name: 'jabatanPenerima', label: 'Jabatan Petugas', default: 'Teknisi' },
       { name: 'uraianTugas', label: 'Uraian Tugas', multiline: true },
       { name: '_tglMulai', label: 'Tanggal Tugas — Mulai', type: 'date', dateMaps: { tanggalTugas: 'long' } },
@@ -109,7 +119,16 @@ export const TEMPLATES: TemplateDef[] = [
       { name: 'namaPemberi', label: 'Pemberi Tugas — Nama' },
       { name: 'jabatanPemberi', label: 'Pemberi Tugas — Jabatan', default: 'Engineer Pembangunan dan Delivery Layanan' },
     ],
-    suggestName: (d) => (d.nama1 ? clean(d.nama1) : null),
+    repeatGroups: [
+      { name: 'petugas', label: 'Petugas yang Ditugaskan', minRows: 1, subFields: [{ name: 'nama', label: 'Nama' }] },
+    ],
+    suggestName: (d) => {
+      // ponytail: derive filename from first petugas name in group data
+      try {
+        const rows = d._group_petugas ? (JSON.parse(d._group_petugas) as { nama?: string }[]) : [];
+        return rows[0]?.nama ? clean(rows[0].nama) : null;
+      } catch { return null; }
+    },
   },
   {
     id: 'BAI',
@@ -139,6 +158,7 @@ export const TEMPLATES: TemplateDef[] = [
     description: 'Berita Acara Kendala Lapangan',
     folder: 'BERITA_ACARA',
     file: 'BAKL.docx',
+    twoParties: true,
     fields: [
       { name: '_tglPelaksanaan', label: 'Tanggal Pelaksanaan', type: 'date', dateMaps: { hari: 'weekday', tanggal: 'day', bulan: 'month', tahun: 'year' } },
       { name: 'namaLayanan', label: 'Nama Layanan' },
@@ -150,14 +170,23 @@ export const TEMPLATES: TemplateDef[] = [
       { name: 'jabatanPihakKedua', label: 'Pihak Kedua — Jabatan', default: '............' },
       { name: 'alamatPihakKedua', label: 'Pihak Kedua — Alamat Kantor', default: '............' },
       { name: 'telpPihakKedua', label: 'Pihak Kedua — Telepon & Fax', default: '............' },
-      { name: 'kendala1', label: 'Kendala 1', multiline: true },
-      { name: 'kendala2', label: 'Kendala 2', multiline: true },
-      { name: 'kendala3', label: 'Kendala 3', multiline: true },
       { name: 'lamaTertunda', label: 'Lama Tertunda (hari)' },
       { name: '_tglTundaMulai', label: 'Tertunda — Mulai', type: 'date', dateMaps: { tglMulai: 'long' } },
       { name: '_tglTundaSelesai', label: 'Tertunda — Selesai', type: 'date', dateMaps: { tglSelesai: 'long' } },
       { name: 'kota', label: 'Kota', default: 'Bandung' },
       { name: '_tglBA', label: 'Tanggal Berita Acara', type: 'date', dateMaps: { tanggalBA: 'long' } },
+    ],
+    repeatGroups: [
+      { name: 'kendala', label: 'Kendala', minRows: 1, subFields: [{ name: 'kendala', label: 'Kendala', multiline: true }] },
+      {
+        name: 'petugas', label: 'Petugas Lapangan', minRows: 1,
+        subFields: [
+          { name: 'perusahaan', label: 'Perusahaan' },
+          { name: 'nama', label: 'Nama' },
+          { name: 'noTelp', label: 'No. Telp/HP' },
+          { name: 'lokasiKerja', label: 'Lokasi Kerja' },
+        ],
+      },
     ],
     suggestName: (d) => (d.noPA ? 'BAKL_' + clean(d.noPA) : null),
   },
@@ -189,6 +218,7 @@ export const TEMPLATES: TemplateDef[] = [
     description: 'Berita Acara Pemakaian',
     folder: 'BERITA_ACARA',
     file: 'BAP.docx',
+    twoParties: true,
     fields: [
       { name: '_tglPelaksanaan', label: 'Tanggal Pelaksanaan', type: 'date', dateMaps: { tanggal: 'day', bulan: 'month', tahun: 'yearWords' } },
       { name: 'namaLayanan', label: 'Nama Layanan' },
@@ -219,6 +249,7 @@ export const TEMPLATES: TemplateDef[] = [
     description: 'Berita Acara Serah Terima Barang',
     folder: 'BERITA_ACARA',
     file: 'BAST.docx',
+    twoParties: true,
     fields: [
       { name: 'nomor', label: 'Nomor Berita Acara' },
       { name: '_tglSerahTerima', label: 'Tanggal Serah Terima', type: 'date', dateMaps: { hari: 'weekday', tanggal: 'day', bulan: 'month', tahun: 'yearWordsDMY' } },
@@ -244,6 +275,7 @@ export const TEMPLATES: TemplateDef[] = [
     file: 'NODIN.docx',
     noSignature: true,
     fields: [
+      { name: 'nomor', label: 'Nomor Nota Dinas' },
       { name: 'perihal', label: 'Perihal' },
       { name: 'pekerjaan', label: 'Pekerjaan yang Telah Dilaksanakan' },
       { name: 'tim', label: 'Tim Pelaksana (dari)' },
@@ -251,32 +283,18 @@ export const TEMPLATES: TemplateDef[] = [
       { name: 'coa', label: 'COA' },
       { name: 'miDana', label: 'MI Dana Dropping', default: 'MI Dana Dropping SBU Regional 030117/MI/008/PUSAT/ICON+/2017' },
       { name: 'miList', label: 'MI List Material', default: 'MI List Material Dropping No.' },
-      { name: 'material1', label: 'Material 1' },
-      { name: 'vol1', label: 'Volume 1' },
-      { name: 'satuan1', label: 'Satuan 1' },
-      { name: 'hargaSatuan1', label: 'Harga Satuan 1 (Rp)' },
-      { name: 'jumlahTotal1', label: 'Jumlah Total 1 (Rp)' },
-      { name: 'material2', label: 'Material 2 (opsional)' },
-      { name: 'vol2', label: 'Volume 2' },
-      { name: 'satuan2', label: 'Satuan 2' },
-      { name: 'hargaSatuan2', label: 'Harga Satuan 2 (Rp)' },
-      { name: 'jumlahTotal2', label: 'Jumlah Total 2 (Rp)' },
-      { name: 'material3', label: 'Material 3 (opsional)' },
-      { name: 'vol3', label: 'Volume 3' },
-      { name: 'satuan3', label: 'Satuan 3' },
-      { name: 'hargaSatuan3', label: 'Harga Satuan 3 (Rp)' },
-      { name: 'jumlahTotal3', label: 'Jumlah Total 3 (Rp)' },
-      { name: 'material4', label: 'Material 4 (opsional)' },
-      { name: 'vol4', label: 'Volume 4' },
-      { name: 'satuan4', label: 'Satuan 4' },
-      { name: 'hargaSatuan4', label: 'Harga Satuan 4 (Rp)' },
-      { name: 'jumlahTotal4', label: 'Jumlah Total 4 (Rp)' },
-      { name: 'material5', label: 'Material 5 (opsional)' },
-      { name: 'vol5', label: 'Volume 5' },
-      { name: 'satuan5', label: 'Satuan 5' },
-      { name: 'hargaSatuan5', label: 'Harga Satuan 5 (Rp)' },
-      { name: 'jumlahTotal5', label: 'Jumlah Total 5 (Rp)' },
-      { name: 'totalTagihan', label: 'Total Tagihan (Rp)' },
+    ],
+    repeatGroups: [
+      {
+        name: 'items', label: 'Material', minRows: 1,
+        subFields: [
+          { name: 'material', label: 'Material' },
+          { name: 'vol', label: 'Volume', type: 'number' },
+          { name: 'satuan', label: 'Satuan' },
+          { name: 'hargaSatuan', label: 'Harga Satuan (Rp)', type: 'number' },
+          { name: 'jumlahTotal', label: 'Jumlah Total (Rp)', type: 'number' },
+        ],
+      },
     ],
     suggestName: (d) =>
       d.perihal ? 'NODIN_' + clean(d.perihal).replace(/[^a-zA-Z0-9_-]/g, '') : null,

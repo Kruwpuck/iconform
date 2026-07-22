@@ -45,15 +45,43 @@ function clearDraft(templateId: string) {
 function initialData(template: TemplateDef, existingDoc?: ExistingDoc): Record<string, string> {
   let saved: Record<string, string> = {};
   if (existingDoc) {
-    try {
-      saved = JSON.parse(existingDoc.contentHtml);
-    } catch {
-      saved = {};
-    }
+    try { saved = JSON.parse(existingDoc.contentHtml); } catch { saved = {}; }
   }
   const out: Record<string, string> = {};
   for (const f of template.fields) {
     out[f.name] = saved[f.name] ?? f.default ?? '';
+  }
+  // Re-expand date fields so derived tags (hari, tanggal, etc.) are populated on re-edit
+  for (const f of template.fields) {
+    if (f.type === 'date' && f.dateMaps && out[f.name]) {
+      for (const [tag, kind] of Object.entries(f.dateMaps)) {
+        if (!(tag in out)) out[tag] = formatDate(kind, out[f.name]);
+      }
+    }
+  }
+  // Carry forward repeat-group arrays (stored as JSON string in _group_* keys)
+  for (const g of template.repeatGroups ?? []) {
+    const key = `_group_${g.name}`;
+    if (saved[key]) out[key] = saved[key];
+    else {
+      // Migrate legacy flat keys (material1/kendala1/nama1 etc.)
+      const rows: Record<string, string>[] = [];
+      for (let i = 1; i <= 10; i++) {
+        const firstSf = g.subFields[0];
+        const legacyKey = g.name === 'items' ? `${firstSf.name}${i}`
+          : g.name === 'petugas' && 'nama1' in saved ? `nama${i}`
+          : g.name === 'kendala' ? `kendala${i}`
+          : null;
+        if (!legacyKey || !saved[legacyKey]) break;
+        const row: Record<string, string> = {};
+        for (const sf of g.subFields) {
+          const lk = g.name === 'petugas' && 'nama1' in saved ? `${sf.name}${i}` : `${sf.name}${i}`;
+          row[sf.name] = saved[lk] ?? '';
+        }
+        rows.push(row);
+      }
+      if (rows.length) out[key] = JSON.stringify(rows);
+    }
   }
   return out;
 }
@@ -70,6 +98,13 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
   const [previewing, setPreviewing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [nomorList, setNomorList] = useState<string[]>([]);
+
+  // Lazy-fetch nomor list only for templates that use it
+  useEffect(() => {
+    if (!template.fields.some((f) => f.name === 'nomor')) return;
+    fetch('/api/nomor').then((r) => r.json()).then(setNomorList).catch(() => {});
+  }, [template.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Escape to close
   useEffect(() => {
@@ -112,7 +147,7 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
   // persist via contentHtml with zero API changes. Normalized to PNG via
   // canvas (pdf-lib stamping only takes PNG/JPG); a default position is set
   // so the mark is draggable in the preview right away.
-  function handleImageField(e: React.ChangeEvent<HTMLInputElement>, key: 'ttd' | 'stempel') {
+  function handleImageField(e: React.ChangeEvent<HTMLInputElement>, key: 'ttd' | 'stempel' | 'ttd2' | 'stempel2') {
     const file = e.target.files?.[0];
     if (!file) return;
     const url = URL.createObjectURL(file);
@@ -125,7 +160,7 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
       setData((prev) => ({
         ...prev,
         [key]: c.toDataURL('image/png'),
-        [key + 'Pos']: prev[key + 'Pos'] || (key === 'ttd' ? '1,0.60,0.72' : '1,0.64,0.78'),
+        [key + 'Pos']: prev[key + 'Pos'] || (key === 'ttd' ? '1,0.60,0.72' : key === 'stempel' ? '1,0.64,0.78' : key === 'ttd2' ? '1,0.30,0.72' : '1,0.34,0.78'),
         [key + 'Size']: prev[key + 'Size'] || '1',
       }));
       URL.revokeObjectURL(url);
@@ -138,7 +173,7 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
     return m ? { page: +m[1], x: +m[2], y: +m[3] } : null;
   }
 
-  function startResize(e: React.PointerEvent<HTMLDivElement>, key: 'ttd' | 'stempel') {
+  function startResize(e: React.PointerEvent<HTMLDivElement>, key: 'ttd' | 'stempel' | 'ttd2' | 'stempel2') {
     e.preventDefault();
     e.stopPropagation();
     const startY = e.clientY;
@@ -155,7 +190,7 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
     window.addEventListener('pointerup', up);
   }
 
-  function startDrag(e: React.PointerEvent<HTMLImageElement>, key: 'ttd' | 'stempel', page: number) {
+  function startDrag(e: React.PointerEvent<HTMLImageElement>, key: 'ttd' | 'stempel' | 'ttd2' | 'stempel2', page: number) {
     e.preventDefault();
     // parentElement = wrapper div; parentElement.parentElement = page container
     const wrap = e.currentTarget.parentElement!.parentElement!;
@@ -267,15 +302,99 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
                     className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
                   />
                 ) : (
-                  <input
-                    type={f.type === 'date' ? 'date' : 'text'}
-                    value={data[f.name] ?? ''}
-                    onChange={(e) => setField(f.name, e.target.value)}
-                    className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
-                  />
+                  <>
+                    <input
+                      type={f.type === 'date' ? 'date' : 'text'}
+                      list={f.name === 'nomor' && nomorList.length ? 'nomor-datalist' : undefined}
+                      value={data[f.name] ?? ''}
+                      onChange={(e) => setField(f.name, e.target.value)}
+                      className="w-full border border-slate-300 rounded px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+                    />
+                    {f.name === 'nomor' && nomorList.length > 0 && (
+                      <datalist id="nomor-datalist">
+                        {nomorList.map((n) => <option key={n} value={n} />)}
+                      </datalist>
+                    )}
+                  </>
                 )}
               </div>
             ))}
+
+            {/* Repeat groups (dynamic rows) */}
+            {(template.repeatGroups ?? []).map((g) => {
+              const groupKey = `_group_${g.name}`;
+              let rows: Record<string, string>[] = [];
+              try { rows = JSON.parse(data[groupKey] || '[]'); } catch { rows = []; }
+              if (rows.length < (g.minRows ?? 1)) rows = [...rows, ...Array.from({ length: (g.minRows ?? 1) - rows.length }, () => ({}))];
+
+              function setGroupRows(next: Record<string, string>[]) {
+                const val = JSON.stringify(next);
+                setData((prev) => {
+                  const d = { ...prev, [groupKey]: val };
+                  if (!existingDoc) saveDraft(template.id, d, filename, logo);
+                  return d;
+                });
+              }
+              // NODIN: auto-sum jumlahTotal per row and totalTagihan
+              function setGroupField(idx: number, sfName: string, value: string) {
+                const next = rows.map((r, i) => {
+                  if (i !== idx) return r;
+                  const updated = { ...r, [sfName]: value };
+                  if (g.name === 'items') {
+                    const v = parseFloat(updated.vol || '0');
+                    const h = parseFloat((updated.hargaSatuan || '0').replace(/[,.]/g, ''));
+                    if (!isNaN(v) && !isNaN(h)) updated.jumlahTotal = (v * h).toString();
+                  }
+                  return updated;
+                });
+                // NODIN: recompute totalTagihan
+                if (g.name === 'items') {
+                  const total = next.reduce((s, r) => s + parseFloat((r.jumlahTotal || '0').replace(/[,.]/g, '')), 0);
+                  setData((prev) => {
+                    const d = { ...prev, [groupKey]: JSON.stringify(next), totalTagihan: total.toString() };
+                    if (!existingDoc) saveDraft(template.id, d, filename, logo);
+                    return d;
+                  });
+                  return;
+                }
+                setGroupRows(next);
+              }
+
+              return (
+                <div key={g.name} className="border-t pt-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-semibold text-slate-700">{g.label}</p>
+                    <div className="flex gap-1">
+                      <button type="button" onClick={() => setGroupRows([...rows, {}])}
+                        className="px-2 py-0.5 text-xs rounded bg-sky-100 text-sky-700 hover:bg-sky-200">+ Tambah</button>
+                      {rows.length > (g.minRows ?? 1) && (
+                        <button type="button" onClick={() => setGroupRows(rows.slice(0, -1))}
+                          className="px-2 py-0.5 text-xs rounded bg-red-100 text-red-600 hover:bg-red-200">− Hapus</button>
+                      )}
+                    </div>
+                  </div>
+                  {rows.map((row, idx) => (
+                    <div key={idx} className="mb-2 p-2 border border-slate-200 rounded bg-slate-50 space-y-1">
+                      <p className="text-xs text-slate-400">{g.label} {idx + 1}</p>
+                      {g.subFields.map((sf) => (
+                        <div key={sf.name}>
+                          <label className="block text-xs text-slate-500 mb-0.5">{sf.label}</label>
+                          {sf.multiline ? (
+                            <textarea value={row[sf.name] ?? ''} rows={2}
+                              onChange={(e) => setGroupField(idx, sf.name, e.target.value)}
+                              className="w-full border border-slate-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400" />
+                          ) : (
+                            <input type={sf.type === 'number' ? 'number' : 'text'} value={row[sf.name] ?? ''}
+                              onChange={(e) => setGroupField(idx, sf.name, e.target.value)}
+                              className="w-full border border-slate-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400" />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
 
             {!template.noSignature && ([['ttd', 'Upload Tanda Tangan'], ['stempel', 'Upload Stempel']] as const).map(([key, label]) => (
               <div key={key} className="border-t pt-3">
@@ -300,6 +419,28 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
               </div>
             ))}
 
+            {/* TTD pihak-2 (eksternal) */}
+            {!template.noSignature && template.twoParties && (
+              <div className="border-t pt-3">
+                <p className="text-sm font-semibold text-slate-700 mb-2">Tanda Tangan Pihak Kedua</p>
+                {([['ttd2', 'Upload TTD Pihak Kedua'], ['stempel2', 'Upload Stempel Pihak Kedua']] as const).map(([key, label]) => (
+                  <div key={key} className="mb-2">
+                    <label className="flex items-center gap-2 text-sm font-medium text-slate-600 cursor-pointer w-fit">
+                      <ImagePlus size={16} />
+                      {label}
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageField(e, key)} />
+                    </label>
+                    {data[key] && (
+                      <div className="mt-1 flex items-center gap-3">
+                        <img src={data[key]} alt={label} className="max-h-16 border rounded" />
+                        <button type="button" onClick={() => setField(key, '')} className="text-xs text-red-500 hover:text-red-600">Hapus</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
             {template.allowLogo && (
               <div className="border-t pt-3">
                 <label className="flex items-center gap-2 text-sm font-medium text-slate-600 cursor-pointer w-fit">
@@ -323,7 +464,7 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
                 return (
                   <div key={pi} className="relative" style={{ userSelect: 'none' }}>
                     <img src={src} className="w-full block" alt={`Halaman ${pageNum}`} />
-                    {!template.noSignature && (['ttd', 'stempel'] as const).map((key) => {
+                    {!template.noSignature && (['ttd', 'stempel', 'ttd2', 'stempel2'] as const).map((key) => {
                       const pos = parsePos(data[key + 'Pos']);
                       if (!pos || pos.page !== pageNum || !data[key]) return null;
                       const h = 45 * parseFloat(data[key + 'Size'] || '1');
