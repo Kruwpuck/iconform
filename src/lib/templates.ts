@@ -109,7 +109,7 @@ export const TEMPLATES: TemplateDef[] = [
     folder: 'SURAT_TUGAS',
     file: 'SURAT_TUGAS.docx',
     fields: [
-      { name: 'nomor', label: 'Nomor Surat' },
+      { name: 'nomor', label: 'Nomor Surat', default: '............/STG/008/SUJBBICON+/............' },
       { name: 'jabatanPenerima', label: 'Jabatan Petugas', default: 'Teknisi' },
       { name: 'uraianTugas', label: 'Uraian Tugas', multiline: true },
       { name: '_tglMulai', label: 'Tanggal Tugas — Mulai', type: 'date', dateMaps: { tanggalTugas: 'long' } },
@@ -122,13 +122,7 @@ export const TEMPLATES: TemplateDef[] = [
     repeatGroups: [
       { name: 'petugas', label: 'Petugas yang Ditugaskan', minRows: 1, subFields: [{ name: 'nama', label: 'Nama' }] },
     ],
-    suggestName: (d) => {
-      // ponytail: derive filename from first petugas name in group data
-      try {
-        const rows = d._group_petugas ? (JSON.parse(d._group_petugas) as { nama?: string }[]) : [];
-        return rows[0]?.nama ? clean(rows[0].nama) : null;
-      } catch { return null; }
-    },
+    suggestName: (d) => (d.nomor ? 'Surat_Tugas_' + clean(d.nomor) : null),
   },
   {
     id: 'BAI',
@@ -136,21 +130,9 @@ export const TEMPLATES: TemplateDef[] = [
     description: 'Berita Acara Instalasi – Aktivasi',
     folder: 'BERITA_ACARA',
     file: 'BAI.docx',
+    twoParties: true,
     fields: BAI_FIELDS,
     suggestName: (d) => (d.noPA ? 'Surat_BAI_' + clean(d.noPA) : d.serviceId ? 'Surat_BAI_' + clean(d.serviceId) : null),
-  },
-  {
-    id: 'UID_JABAR',
-    label: 'BAI UID JABAR',
-    description: 'BAI-BAA untuk PT PLN (Persero) Unit Induk Distribusi Jawa Barat',
-    folder: 'BERITA_ACARA',
-    file: 'UID_JABAR.docx',
-    fields: BAI_FIELDS.map((f) =>
-      f.name === 'namaPelanggan' || f.name === 'instansiPelanggan'
-        ? { ...f, default: 'PT. PLN (PERSERO) UNIT INDUK DISTRIBUSI JAWA BARAT' }
-        : f
-    ),
-    suggestName: (d) => (d.noPA ? 'BAI_UID_JABAR_' + clean(d.noPA) : null),
   },
   {
     id: 'BAKL',
@@ -191,28 +173,6 @@ export const TEMPLATES: TemplateDef[] = [
     suggestName: (d) => (d.noPA ? 'BAKL_' + clean(d.noPA) : null),
   },
   {
-    id: 'BA_PENGUJIAN',
-    label: 'BA Pengujian',
-    description: 'Berita Acara Hasil Pengujian',
-    folder: 'BERITA_ACARA',
-    file: 'BA_PENGUJIAN.docx',
-    allowLogo: true,
-    fields: [
-      { name: 'nomor', label: 'Nomor Berita Acara' },
-      { name: '_tglPelaksanaan', label: 'Tanggal Pelaksanaan', type: 'date', dateMaps: { hari: 'weekday', tanggal: 'day', bulan: 'month', tahun: 'yearWordsDMY' } },
-      { name: 'namaPihakPertama', label: 'Pihak Pertama — Nama' },
-      { name: 'jabatanPihakPertama', label: 'Pihak Pertama — Jabatan' },
-      { name: 'instansiPihakPertama', label: 'Pihak Pertama — Instansi' },
-      { name: 'alamatPihakPertama', label: 'Pihak Pertama — Berkedudukan', multiline: true },
-      { name: 'namaPihakKedua', label: 'Pihak Kedua (PLN Icon Plus) — Nama' },
-      { name: 'jabatanPihakKedua', label: 'Pihak Kedua — Jabatan' },
-    ],
-    suggestName: (d) =>
-      d.instansiPihakPertama ? 'BAHP_' + clean(d.instansiPihakPertama)
-      : d.nomor ? 'BAHP_' + clean(d.nomor)
-      : null,
-  },
-  {
     id: 'BAP',
     label: 'BAP',
     description: 'Berita Acara Pemakaian',
@@ -251,7 +211,7 @@ export const TEMPLATES: TemplateDef[] = [
     file: 'BAST.docx',
     twoParties: true,
     fields: [
-      { name: 'nomor', label: 'Nomor Berita Acara' },
+      { name: 'nomor', label: 'Nomor Berita Acara', default: '............/BAST/SBUBDGICON+/2026' },
       { name: '_tglSerahTerima', label: 'Tanggal Serah Terima', type: 'date', dateMaps: { hari: 'weekday', tanggal: 'day', bulan: 'month', tahun: 'yearWordsDMY' } },
       { name: 'namaPihakPertama', label: 'Pihak Pertama — Nama', default: '............' },
       { name: 'jabatanPihakPertama', label: 'Pihak Pertama — Jabatan', default: '............' },
@@ -268,36 +228,40 @@ export const TEMPLATES: TemplateDef[] = [
     suggestName: (d) => (d.perangkat ? 'BAST_' + clean(d.perangkat) : null),
   },
   {
-    id: 'NODIN',
-    label: 'Nota Dinas',
-    description: 'Nota Dinas permohonan pembayaran dana dropping',
-    folder: 'BERITA_ACARA', // ponytail: reuse existing FolderType; Drive routing is per-template anyway
-    file: 'NODIN.docx',
-    noSignature: true,
+    id: 'UID_JABAR',
+    label: 'BAI UID JABAR',
+    description: 'BAI-BAA untuk PT PLN (Persero) Unit Induk Distribusi Jawa Barat',
+    folder: 'BERITA_ACARA',
+    file: 'UID_JABAR.docx',
+    twoParties: true,
+    fields: BAI_FIELDS.map((f) =>
+      f.name === 'namaPelanggan' || f.name === 'instansiPelanggan'
+        ? { ...f, default: 'PT. PLN (PERSERO) UNIT INDUK DISTRIBUSI JAWA BARAT' }
+        : f
+    ),
+    suggestName: (d) => (d.noPA ? 'BAI_UID_JABAR_' + clean(d.noPA) : null),
+  },
+  {
+    id: 'BA_PENGUJIAN',
+    label: 'BA Pengujian',
+    description: 'Berita Acara Hasil Pengujian',
+    folder: 'BERITA_ACARA',
+    file: 'BA_PENGUJIAN.docx',
+    allowLogo: true,
     fields: [
-      { name: 'nomor', label: 'Nomor Nota Dinas' },
-      { name: 'perihal', label: 'Perihal' },
-      { name: 'pekerjaan', label: 'Pekerjaan yang Telah Dilaksanakan' },
-      { name: 'tim', label: 'Tim Pelaksana (dari)' },
-      { name: 'prk', label: 'No PRK' },
-      { name: 'coa', label: 'COA' },
-      { name: 'miDana', label: 'MI Dana Dropping', default: 'MI Dana Dropping SBU Regional 030117/MI/008/PUSAT/ICON+/2017' },
-      { name: 'miList', label: 'MI List Material', default: 'MI List Material Dropping No.' },
-    ],
-    repeatGroups: [
-      {
-        name: 'items', label: 'Material', minRows: 1,
-        subFields: [
-          { name: 'material', label: 'Material' },
-          { name: 'vol', label: 'Volume', type: 'number' },
-          { name: 'satuan', label: 'Satuan' },
-          { name: 'hargaSatuan', label: 'Harga Satuan (Rp)', type: 'number' },
-          { name: 'jumlahTotal', label: 'Jumlah Total (Rp)', type: 'number' },
-        ],
-      },
+      { name: 'nomor', label: 'Nomor Berita Acara', default: '............/BAHP/............/ICON+/............' },
+      { name: '_tglPelaksanaan', label: 'Tanggal Pelaksanaan', type: 'date', dateMaps: { hari: 'weekday', tanggal: 'day', bulan: 'month', tahun: 'yearWordsDMY' } },
+      { name: 'namaPihakPertama', label: 'Pihak Pertama — Nama' },
+      { name: 'jabatanPihakPertama', label: 'Pihak Pertama — Jabatan' },
+      { name: 'instansiPihakPertama', label: 'Pihak Pertama — Instansi' },
+      { name: 'alamatPihakPertama', label: 'Pihak Pertama — Berkedudukan', multiline: true },
+      { name: 'namaPihakKedua', label: 'Pihak Kedua (PLN Icon Plus) — Nama' },
+      { name: 'jabatanPihakKedua', label: 'Pihak Kedua — Jabatan' },
     ],
     suggestName: (d) =>
-      d.perihal ? 'NODIN_' + clean(d.perihal).replace(/[^a-zA-Z0-9_-]/g, '') : null,
+      d.nomor ? 'BA_Pengujian_' + clean(d.nomor)
+      : d.instansiPihakPertama ? 'BA_Pengujian_' + clean(d.instansiPihakPertama)
+      : null,
   },
 ];
 

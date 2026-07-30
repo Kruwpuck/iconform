@@ -123,7 +123,7 @@ export async function generateDoc(
   data: Record<string, string>
 ): Promise<{ docx: Buffer; pdf: Buffer }> {
   const docx = await fillDocx(templateFile, data);
-  const dragged = (['ttd', 'stempel'] as const).filter((k) => data[k] && parsePos(data[k + 'Pos']));
+  const dragged = (['ttd', 'stempel', 'ttd2', 'stempel2'] as const).filter((k) => data[k] && parsePos(data[k + 'Pos']));
   // dragged marks would appear twice in the PDF — blank their inline copy first
   const pdfSrc = dragged.length
     ? await fillDocx(templateFile, { ...data, ...Object.fromEntries(dragged.map((k) => [k, ''])) })

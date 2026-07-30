@@ -11,15 +11,33 @@ export async function GET(req: Request) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
+
+  if (searchParams.get('distinctMonths') === '1') {
+    const rows = await prisma.$queryRaw<{ month: string }[]>`
+      SELECT DISTINCT to_char("createdAt", 'YYYY-MM') AS month
+      FROM "Document"
+      ORDER BY month DESC
+    `;
+    return NextResponse.json({ months: rows.map((r) => r.month) });
+  }
+
   const search = searchParams.get('search') ?? '';
   const folder = searchParams.get('folder') as FolderType | null;
   const templateParam = searchParams.get('template') as TemplateType | null;
+  const month = searchParams.get('month'); // "YYYY-MM" — filters by createdAt
   const page = Math.max(1, Number(searchParams.get('page') ?? '1'));
   const pageSize = Math.min(100, Math.max(1, Number(searchParams.get('pageSize') ?? '10')));
+
+  let createdAtRange: { gte: Date; lt: Date } | undefined;
+  if (month && /^\d{4}-\d{2}$/.test(month)) {
+    const [y, m] = month.split('-').map(Number);
+    createdAtRange = { gte: new Date(Date.UTC(y, m - 1, 1)), lt: new Date(Date.UTC(y, m, 1)) };
+  }
 
   const where = {
     ...(folder && Object.values(FolderType).includes(folder) ? { folder } : {}),
     ...(templateParam && Object.values(TemplateType).includes(templateParam) ? { template: templateParam } : {}),
+    ...(createdAtRange ? { createdAt: createdAtRange } : {}),
     filename: { contains: search, mode: 'insensitive' as const },
   };
 

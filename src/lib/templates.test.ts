@@ -58,13 +58,10 @@ assert('yearWords 2015', formatDate('yearWords', '2015-01-01'), 'Dua Ribu Lima B
 assert('BAP empty→null', BAP.suggestName({}), null);
 assert('BAP noSalesOrder', BAP.suggestName({ noSalesOrder: 'A121201000003' }), 'BAP_A121201000003');
 
-// BAST + NODIN
+// BAST
 const BAST = templateById('BAST')!;
-const NODIN = templateById('NODIN')!;
 assert('BAST empty→null', BAST.suggestName({}), null);
 assert('BAST nomor', BAST.suggestName({ nomor: '102401/BAST/SBUBDG/ICON+/2025' }), 'BAST_102401-BAST-SBUBDG-ICON+-2025');
-assert('NODIN empty→null', NODIN.suggestName({}), null);
-assert('NODIN perihal', NODIN.suggestName({ perihal: 'Pembayaran Jasa Instalasi' }), 'NODIN_Pembayaran_Jasa_Instalasi');
 
 // every template must point at an existing field set + docx file name
 for (const t of TEMPLATES) {
