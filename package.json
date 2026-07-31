@@ -18,7 +18,7 @@
     "docxtemplater-image-module-free": "^1.1.1",
     "googleapis": "^144.0.0",
     "image-size": "^2.0.2",
-    "lucide-react": "^0.469.0",
+    "lucide-react": "^1.27.0",
     "next": "^15.5.20",
     "next-auth": "beta",
     "otplib": "^13.4.1",
