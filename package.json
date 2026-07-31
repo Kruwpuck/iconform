@@ -12,7 +12,7 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@prisma/client": "^5.22.0",
+    "@prisma/client": "^7.9.1",
     "bcryptjs": "^2.4.3",
     "docxtemplater": "^3.69.0",
     "docxtemplater-image-module-free": "^1.1.1",
