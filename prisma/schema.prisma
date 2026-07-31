@@ -12,8 +12,10 @@ model User {
   username     String     @unique
   email        String?    @unique
   passwordHash String
-  name         String
-  createdAt    DateTime   @default(now())
+  name             String
+  totpSecret       String?
+  twoFactorEnabled Boolean  @default(false)
+  createdAt        DateTime @default(now())
   sessions     Session[]
   documents    Document[]
 }

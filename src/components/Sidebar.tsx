@@ -1,5 +1,5 @@
 import { signOut } from '@/auth';
-import { LayoutDashboard, LogOut, FileText } from 'lucide-react';
+import { LayoutDashboard, LogOut, FileText, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { TEMPLATES } from '@/lib/templates';
 
@@ -32,6 +32,14 @@ export default function Sidebar() {
             {t.label}
           </Link>
         ))}
+        <p className="text-xs text-blue-400 uppercase tracking-wider px-3 pt-4 pb-1">Akun</p>
+        <Link
+          href="/settings/2fa"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-white/80 hover:bg-blue-800 hover:text-white transition-colors"
+        >
+          <ShieldCheck size={14} />
+          Keamanan 2FA
+        </Link>
       </nav>
 
       {/* Sign out */}
