@@ -5,6 +5,7 @@ import { uploadFile, deleteFile, prepareTargetFolder } from '@/lib/gdrive';
 import { templateById } from '@/lib/templates';
 import { generateDoc } from '@/lib/docxgen';
 import { FolderType, TemplateType } from '@prisma/client';
+import { sanitizeFilename, isValidLogo, MAX_BODY_BYTES } from '@/lib/validate';
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -58,9 +59,13 @@ export async function POST(req: Request) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  const contentLength = req.headers.get('content-length');
+  if (contentLength && Number(contentLength) > MAX_BODY_BYTES)
+    return NextResponse.json({ error: 'payload too large' }, { status: 413 });
+
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: 'invalid JSON' }, { status: 400 });
-  const filename = (body.filename as string | undefined)?.trim();
+  const filename = sanitizeFilename(body.filename ?? '');
   const template = body.template as string | undefined;
   const data = (body.data ?? {}) as Record<string, string>;
   const logo = body.logo as string | null | undefined;
@@ -70,6 +75,9 @@ export async function POST(req: Request) {
     ? templateById(template)
     : undefined;
   if (!def) return NextResponse.json({ error: 'invalid template' }, { status: 400 });
+
+  if (logo && !isValidLogo(logo))
+    return NextResponse.json({ error: 'invalid logo' }, { status: 400 });
 
   const folderId = await prepareTargetFolder(def.id, def.folder, filename, logo);
   if (!folderId) return NextResponse.json({ error: 'Drive folder ID not configured' }, { status: 500 });

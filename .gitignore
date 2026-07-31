@@ -2,7 +2,13 @@ node_modules/
 .next/
 tsconfig.tsbuildinfo
 .env
+.env.*
+!.env.example
 iconform-drive-xxxx.json
 iconform-drive.json
+iconform-drive*.json
+service-account*.json
+*-key.json
+*.pem
 scripts/__pycache__/
 .playwright-mcp/

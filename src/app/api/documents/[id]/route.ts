@@ -5,6 +5,7 @@ import { uploadFile, deleteFile, prepareTargetFolder, getFileMeta } from '@/lib/
 import { templateById } from '@/lib/templates';
 import { generateDoc } from '@/lib/docxgen';
 import { TemplateType } from '@prisma/client';
+import { sanitizeFilename, isValidLogo, MAX_BODY_BYTES } from '@/lib/validate';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -28,9 +29,13 @@ export async function PUT(req: Request, { params }: Params) {
   if (existing.createdById !== session.user?.id)
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
+  const contentLength = req.headers.get('content-length');
+  if (contentLength && Number(contentLength) > MAX_BODY_BYTES)
+    return NextResponse.json({ error: 'payload too large' }, { status: 413 });
+
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: 'invalid JSON' }, { status: 400 });
-  const filename = (body.filename as string | undefined)?.trim();
+  const filename = sanitizeFilename(body.filename ?? '');
   const template = body.template as string | undefined;
   const data = (body.data ?? {}) as Record<string, string>;
   const logo = body.logo as string | null | undefined;
@@ -40,6 +45,9 @@ export async function PUT(req: Request, { params }: Params) {
     ? templateById(template)
     : undefined;
   if (!def) return NextResponse.json({ error: 'invalid template' }, { status: 400 });
+
+  if (logo && !isValidLogo(logo))
+    return NextResponse.json({ error: 'invalid logo' }, { status: 400 });
 
   // ponytail: renaming a BA Pengujian leaves the old (now empty) per-doc
   // folder behind; clean up manually if it bothers anyone

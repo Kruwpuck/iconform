@@ -1,0 +1,4 @@
+# Replace with the real hostname before production.
+simsurat.example.id {
+  reverse_proxy iconform-app:3000
+}

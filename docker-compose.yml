@@ -13,12 +13,16 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    # ponytail: never publish Postgres port
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   iconform-app:
     build: .
     restart: unless-stopped
-    ports:
-      - "3000:3000"
     env_file:
       - path: .env
         required: false
@@ -29,7 +33,22 @@ services:
     depends_on:
       iconform-db:
         condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddydata:/data
+    depends_on: [iconform-app]
 
 volumes:
   pgdata:
   docdata:
+  caddydata:
