@@ -13,6 +13,7 @@ class TwoFactorRequired extends CredentialsSignin {
 const attempts = new Map<string, { n: number; until: number }>();
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  secret: process.env.AUTH_SECRET,
   session: { strategy: 'jwt', maxAge: 60 * 60 * 8 },
   pages: {
     signIn: '/login',

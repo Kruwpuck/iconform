@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 // Session callback maps the custom token fields so `auth.user.mustChangePassword`
 // is readable here (the main auth config already signed them into the JWT).
 export const { auth: middleware } = NextAuth({
+  secret: process.env.AUTH_SECRET,
   session: { strategy: 'jwt' },
   pages: { signIn: '/login' },
   providers: [],
