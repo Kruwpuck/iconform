@@ -31,7 +31,7 @@ export default function LoginPage() {
 
     const result = await signIn('credentials', { username, password, redirect: false });
     setLoading(false);
-    if (result?.error === '2FA_REQUIRED') {
+    if (result?.code === '2FA_REQUIRED') {
       setRequire2fa(true);
     } else if (result?.error) {
       setError('Username atau password salah.');

@@ -1,8 +1,12 @@
-import NextAuth from 'next-auth';
+import NextAuth, { CredentialsSignin } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { verify as totpVerify } from 'otplib';
 import { prisma } from '@/lib/prisma';
+
+class TwoFactorRequired extends CredentialsSignin {
+  code = '2FA_REQUIRED';
+}
 
 // ponytail: in-memory, resets on restart, correct only for 1 instance.
 // Upgrade to Redis if >1 replica.
@@ -50,7 +54,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (user.twoFactorEnabled) {
           const code = credentials.totpCode ? String(credentials.totpCode).trim() : '';
-          if (!code) throw new Error('2FA_REQUIRED');
+          if (!code) throw new TwoFactorRequired();
           // ponytail: count TOTP failures separately — password success doesn't reset this
           const result = await totpVerify({ token: code, secret: user.totpSecret! });
           if (!result.valid) {
@@ -64,17 +68,34 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         // Only clear rate-limit counter after BOTH password + TOTP pass
         attempts.delete(key);
-        return { id: user.id, name: user.name, email: user.email };
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          mustChangePassword: user.mustChangePassword,
+          isAdmin: user.createdById === null,
+        };
       },
     }),
   ],
   callbacks: {
-    jwt: async ({ token, user }) => {
-      if (user) token.id = user.id;
+    jwt: async ({ token, user, trigger }) => {
+      if (user) {
+        token.id = user.id;
+        token.mustChangePassword = (user as { mustChangePassword?: boolean }).mustChangePassword ?? false;
+        token.isAdmin = (user as { isAdmin?: boolean }).isAdmin ?? false;
+      }
+      // After a password reset the client calls update() → re-read the flag
+      if (trigger === 'update' && token.id) {
+        const fresh = await prisma.user.findUnique({ where: { id: token.id as string } });
+        if (fresh) token.mustChangePassword = fresh.mustChangePassword;
+      }
       return token;
     },
     session: async ({ session, token }) => {
       if (token.id) session.user.id = token.id as string;
+      session.user.mustChangePassword = Boolean(token.mustChangePassword);
+      session.user.isAdmin = Boolean(token.isAdmin);
       return session;
     },
   },

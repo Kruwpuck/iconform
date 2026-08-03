@@ -88,7 +88,7 @@ function initialData(template: TemplateDef, existingDoc?: ExistingDoc): Record<s
 
 export default function EditorModal({ template, existingDoc, onClose, onSaved }: Props) {
   const draft = !existingDoc ? loadDraft(template.id) : null;
-  const dirtyRef = useRef(!!(existingDoc || draft?.filename));
+  const dirtyRef = useRef(!!existingDoc);
   const [data, setData] = useState<Record<string, string>>(() =>
     draft?.data ?? initialData(template, existingDoc)
   );
@@ -138,6 +138,13 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
     reader.onload = (ev) => {
       const newLogo = ev.target?.result as string;
       setLogo(newLogo);
+      // also register as a draggable mark so the partner logo can be positioned
+      setData((prev) => ({
+        ...prev,
+        logoMitra: newLogo,
+        logoMitraPos: prev.logoMitraPos || '1,0.60,0.60',
+        logoMitraSize: prev.logoMitraSize || '1',
+      }));
       if (!existingDoc) saveDraft(template.id, data, filename, newLogo);
     };
     reader.readAsDataURL(file);
@@ -147,7 +154,7 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
   // persist via contentHtml with zero API changes. Normalized to PNG via
   // canvas (pdf-lib stamping only takes PNG/JPG); a default position is set
   // so the mark is draggable in the preview right away.
-  function handleImageField(e: React.ChangeEvent<HTMLInputElement>, key: 'ttd' | 'stempel' | 'ttd2' | 'stempel2') {
+  function handleImageField(e: React.ChangeEvent<HTMLInputElement>, key: 'ttd' | 'stempel' | 'ttd2' | 'stempel2' | 'logoMitra') {
     const file = e.target.files?.[0];
     if (!file) return;
     const url = URL.createObjectURL(file);
@@ -173,7 +180,7 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
     return m ? { page: +m[1], x: +m[2], y: +m[3] } : null;
   }
 
-  function startResize(e: React.PointerEvent<HTMLDivElement>, key: 'ttd' | 'stempel' | 'ttd2' | 'stempel2') {
+  function startResize(e: React.PointerEvent<HTMLDivElement>, key: 'ttd' | 'stempel' | 'ttd2' | 'stempel2' | 'logoMitra') {
     e.preventDefault();
     e.stopPropagation();
     const startY = e.clientY;
@@ -190,7 +197,7 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
     window.addEventListener('pointerup', up);
   }
 
-  function startDrag(e: React.PointerEvent<HTMLImageElement>, key: 'ttd' | 'stempel' | 'ttd2' | 'stempel2', page: number) {
+  function startDrag(e: React.PointerEvent<HTMLImageElement>, key: 'ttd' | 'stempel' | 'ttd2' | 'stempel2' | 'logoMitra', page: number) {
     e.preventDefault();
     // parentElement = wrapper div; parentElement.parentElement = page container
     const wrap = e.currentTarget.parentElement!.parentElement!;
@@ -464,7 +471,8 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
                 return (
                   <div key={pi} className="relative" style={{ userSelect: 'none' }}>
                     <img src={src} className="w-full block" alt={`Halaman ${pageNum}`} />
-                    {!template.noSignature && (['ttd', 'stempel', 'ttd2', 'stempel2'] as const).map((key) => {
+                    {(['ttd', 'stempel', 'ttd2', 'stempel2', 'logoMitra'] as const).map((key) => {
+                      if (template.noSignature && key !== 'logoMitra') return null;
                       const pos = parsePos(data[key + 'Pos']);
                       if (!pos || pos.page !== pageNum || !data[key]) return null;
                       const h = 45 * parseFloat(data[key + 'Size'] || '1');

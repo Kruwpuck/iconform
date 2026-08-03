@@ -6,6 +6,7 @@ import { templateById } from '@/lib/templates';
 import { generateDoc } from '@/lib/docxgen';
 import { TemplateType } from '@prisma/client';
 import { sanitizeFilename, isValidLogo, MAX_BODY_BYTES } from '@/lib/validate';
+import { logAction } from '@/lib/audit';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -88,6 +89,7 @@ export async function PUT(req: Request, { params }: Params) {
     deleteFile(existing.driveFileIdDocx),
   ]);
 
+  await logAction('DOC_EDIT', filename, { id: session.user?.id, name: session.user?.name });
   return NextResponse.json(updated);
 }
 
@@ -123,5 +125,6 @@ export async function DELETE(_req: Request, { params }: Params) {
   }
 
   await prisma.document.delete({ where: { id } });
+  await logAction('DOC_DELETE', doc.filename, { id: session.user?.id, name: session.user?.name });
   return new NextResponse(null, { status: 204 });
 }

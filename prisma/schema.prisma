@@ -15,9 +15,15 @@ model User {
   name             String
   totpSecret       String?
   twoFactorEnabled Boolean  @default(false)
+  mustChangePassword Boolean @default(false)
   createdAt        DateTime @default(now())
   sessions     Session[]
   documents    Document[]
+
+  // Who provisioned this account. Seed admin has createdById = null.
+  createdById  String?
+  createdBy    User?      @relation("UserCreator", fields: [createdById], references: [id])
+  createdUsers User[]     @relation("UserCreator")
 }
 
 // Required by Auth.js adapter shape + future email auth. Unused under JWT strategy.
@@ -44,6 +50,19 @@ enum TemplateType {
   UID_JABAR
   BAST
   NODIN
+}
+
+// Append-only activity log shown to the seed admin. Actor is stored as a
+// snapshot (id + name) so entries survive the actor's account deletion.
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String   // DOC_CREATE | DOC_EDIT | DOC_DELETE | USER_CREATE | USER_EDIT | USER_DELETE | USER_RESET_PW
+  target    String   // filename or username the action touched
+  actorId   String
+  actorName String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 model Document {

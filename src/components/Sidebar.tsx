@@ -1,9 +1,11 @@
-import { signOut } from '@/auth';
-import { LayoutDashboard, LogOut, FileText, ShieldCheck } from 'lucide-react';
+import { auth, signOut } from '@/auth';
+import { LayoutDashboard, LogOut, FileText, ShieldCheck, Users, KeyRound, ScrollText } from 'lucide-react';
 import Link from 'next/link';
 import { TEMPLATES } from '@/lib/templates';
 
-export default function Sidebar() {
+export default async function Sidebar() {
+  const session = await auth();
+  const isAdmin = session?.user?.isAdmin;
   return (
     <aside className="bg-blue-950 text-white w-64 flex-shrink-0 flex flex-col min-h-screen p-4">
       <div className="mb-4">
@@ -32,6 +34,26 @@ export default function Sidebar() {
             {t.label}
           </Link>
         ))}
+        {isAdmin && (
+          <>
+            <p className="text-xs text-blue-400 uppercase tracking-wider px-3 pt-4 pb-1">Admin</p>
+            <Link
+              href="/admin/users"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-white/80 hover:bg-blue-800 hover:text-white transition-colors"
+            >
+              <Users size={14} />
+              Kelola User
+            </Link>
+            <Link
+              href="/admin/logs"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-white/80 hover:bg-blue-800 hover:text-white transition-colors"
+            >
+              <ScrollText size={14} />
+              Log Aktivitas
+            </Link>
+          </>
+        )}
+
         <p className="text-xs text-blue-400 uppercase tracking-wider px-3 pt-4 pb-1">Akun</p>
         <Link
           href="/settings/2fa"
@@ -39,6 +61,13 @@ export default function Sidebar() {
         >
           <ShieldCheck size={14} />
           Keamanan 2FA
+        </Link>
+        <Link
+          href="/reset-password"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-white/80 hover:bg-blue-800 hover:text-white transition-colors"
+        >
+          <KeyRound size={14} />
+          Ganti Password
         </Link>
       </nav>
 

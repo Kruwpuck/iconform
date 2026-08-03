@@ -1,4 +1,4 @@
-# Replace with the real hostname before production.
-simsurat.example.id {
+# HTTP-only — akses via IP. Ganti ke domain asli + hapus http:// saat produksi.
+:80 {
   reverse_proxy iconform-app:3000
 }

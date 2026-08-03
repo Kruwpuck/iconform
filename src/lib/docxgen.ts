@@ -50,7 +50,7 @@ const MARK_HEIGHT_PT = 33.75; // = SIGNATURE_HEIGHT_PX at 96 dpi
 
 /** Stamp dragged ttd/stempel onto the PDF at their preview positions. */
 async function stampSignatures(pdf: Buffer, data: Record<string, string>): Promise<Buffer> {
-  const marks = (['ttd', 'stempel', 'ttd2', 'stempel2'] as const)
+  const marks = (['ttd', 'stempel', 'ttd2', 'stempel2', 'logoMitra'] as const)
     .map((k) => ({ img: data[k], pos: parsePos(data[k + 'Pos']), scale: parseFloat(data[k + 'Size'] || '1') }))
     .filter((m) => m.img && m.pos);
   if (!marks.length) return pdf;
@@ -123,7 +123,7 @@ export async function generateDoc(
   data: Record<string, string>
 ): Promise<{ docx: Buffer; pdf: Buffer }> {
   const docx = await fillDocx(templateFile, data);
-  const dragged = (['ttd', 'stempel', 'ttd2', 'stempel2'] as const).filter((k) => data[k] && parsePos(data[k + 'Pos']));
+  const dragged = (['ttd', 'stempel', 'ttd2', 'stempel2', 'logoMitra'] as const).filter((k) => data[k] && parsePos(data[k + 'Pos']));
   // dragged marks would appear twice in the PDF — blank their inline copy first
   const pdfSrc = dragged.length
     ? await fillDocx(templateFile, { ...data, ...Object.fromEntries(dragged.map((k) => [k, ''])) })

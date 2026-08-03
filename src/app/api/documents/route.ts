@@ -6,6 +6,7 @@ import { templateById } from '@/lib/templates';
 import { generateDoc } from '@/lib/docxgen';
 import { FolderType, TemplateType } from '@prisma/client';
 import { sanitizeFilename, isValidLogo, MAX_BODY_BYTES } from '@/lib/validate';
+import { logAction } from '@/lib/audit';
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -110,6 +111,7 @@ export async function POST(req: Request) {
         createdById: session.user?.id ?? '',
       },
     });
+    await logAction('DOC_CREATE', filename, { id: session.user?.id, name: session.user?.name });
     return NextResponse.json(doc, { status: 201 });
   } catch (err) {
     // ponytail: cleanup Drive files if DB write fails — no orphaned Drive files
