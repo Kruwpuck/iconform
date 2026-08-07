@@ -257,7 +257,7 @@ export const TEMPLATES: TemplateDef[] = [
     file: 'BA_PENGUJIAN.docx',
     allowLogo: true,
     fields: [
-      { name: 'nomor', label: 'Nomor Berita Acara', default: '............/BAHP/............/ICON+/............' },
+      { name: 'nomor', label: 'Nomor Berita Acara', default: '............/SKU/............/SBUJBB/PLNICONPLUS/............' },
       { name: '_tglPelaksanaan', label: 'Tanggal Pelaksanaan', type: 'date', dateMaps: { hari: 'weekday', tanggal: 'day', bulan: 'month', tahun: 'yearWordsDMY' } },
       { name: 'namaPihakPertama', label: 'Pihak Pertama — Nama' },
       { name: 'jabatanPihakPertama', label: 'Pihak Pertama — Jabatan' },
