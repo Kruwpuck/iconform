@@ -47,7 +47,7 @@ export default function LoginPage() {
           <img src="/icon2.png" alt="PLN Icon Plus" className="h-14 w-auto" />
         </div>
 
-        <h1 className="text-3xl font-bold text-center text-slate-800 mb-1">ICONFORM</h1>
+        <h1 className="text-3xl font-bold text-center text-slate-800 mb-1">PDL FORM</h1>
         <p className="text-center text-slate-500 text-sm mb-8">Regional Jawa Barat</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">

@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
 
   if (body.action === 'setup') {
     const secret = generateSecret();
-    const qrUrl = generateURI({ label: user.username, issuer: 'ICONFORM', secret });
+    const qrUrl = generateURI({ label: user.username, issuer: 'PDL FORM', secret });
     return NextResponse.json({ secret, qrUrl });
   }
 

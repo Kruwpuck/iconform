@@ -11,7 +11,7 @@ export default async function Sidebar() {
       <div className="mb-4">
         <img src="/icon2.png" alt="PLN Icon Plus" className="h-10 w-auto" />
       </div>
-      <h2 className="text-lg font-bold text-white mb-6">ICONFORM</h2>
+      <h2 className="text-lg font-bold text-white mb-6">PDL FORM</h2>
 
       {/* Nav */}
       <nav className="flex-1 space-y-1">
