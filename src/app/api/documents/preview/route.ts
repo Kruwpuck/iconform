@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { templateById } from '@/lib/templates';
-import { generateDoc, pdfToPngs } from '@/lib/docxgen';
+import { generateDoc, parsePos, pdfToPngs } from '@/lib/docxgen';
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -18,12 +18,17 @@ export async function POST(req: Request) {
   if (logo) data.logoMitra = logo;
 
   // format=pages → PNG per page for the drag-to-position preview
-  // blank images so the PDF has no marks baked in; UI overlay renders them
   if (new URL(req.url).searchParams.get('format') === 'pages') {
-    // blank marks so the overlay renders them; only blank the logo when it's
-    // been positioned (has a Pos), else keep the fixed header logo baked-in
-    const blankLogo: Record<string, string> = data.logoMitraPos ? { logoMitra: '' } : {};
-    const { pdf } = await generateDoc(def.file, { ...data, ttd: '', stempel: '', ttd2: '', stempel2: '', ...blankLogo });
+    // Blank a mark only when it has a parseable position — same rule as
+    // generateDoc. Positioned marks are drawn by the UI overlay; unpositioned
+    // ones stay baked in at the template's inline spot, exactly where the
+    // saved PDF puts them.
+    const blanked: Record<string, string> = Object.fromEntries(
+      (['ttd', 'stempel', 'ttd2', 'stempel2', 'logoMitra'] as const)
+        .filter((k) => parsePos(data[k + 'Pos']))
+        .map((k) => [k, ''])
+    );
+    const { pdf } = await generateDoc(def.file, { ...data, ...blanked });
     const pngs = await pdfToPngs(pdf);
     return NextResponse.json({
       pages: pngs.map((b) => 'data:image/png;base64,' + b.toString('base64')),

@@ -41,12 +41,14 @@ function imageModule() {
 }
 
 /** "page,x,y" (x/y = fractions of the page) set by dragging in the editor preview. */
-function parsePos(s: string | undefined): { page: number; x: number; y: number } | null {
+export function parsePos(s: string | undefined): { page: number; x: number; y: number } | null {
   const m = /^(\d+),([\d.]+),([\d.]+)$/.exec(s ?? '');
   return m ? { page: +m[1], x: +m[2], y: +m[3] } : null;
 }
 
-const MARK_HEIGHT_PT = 33.75; // = SIGNATURE_HEIGHT_PX at 96 dpi
+// = SIGNATURE_HEIGHT_PX at 96 dpi. The editor preview sizes its overlay marks
+// from MARK_HEIGHT_PCT in lib/templates.ts (= this / A4 height) — change both.
+const MARK_HEIGHT_PT = 33.75;
 
 /** Stamp dragged ttd/stempel onto the PDF at their preview positions. */
 async function stampSignatures(pdf: Buffer, data: Record<string, string>): Promise<Buffer> {

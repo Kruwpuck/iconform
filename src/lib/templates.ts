@@ -1,5 +1,13 @@
 import { type TemplateType, type FolderType } from '@prisma/client';
 
+/**
+ * Mark (ttd/stempel/logo) height as a % of page height — mirrors
+ * MARK_HEIGHT_PT / A4 height in docxgen.ts. Keep both in sync.
+ * Lives here (not docxgen.ts) because the editor preview is a client
+ * component and docxgen.ts is server-only (fs, child_process).
+ */
+export const MARK_HEIGHT_PCT = (33.75 / 841.89) * 100;
+
 /** how a date input value expands into document tags */
 export type DateKind = 'weekday' | 'day' | 'month' | 'yearWords' | 'yearWordsDMY' | 'long' | 'year';
 

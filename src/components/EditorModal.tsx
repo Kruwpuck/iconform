@@ -2,7 +2,7 @@
 
 import { useRef, useState, useEffect } from 'react';
 import { X, Eye, Save, ImagePlus } from 'lucide-react';
-import { formatDate, type TemplateDef } from '@/lib/templates';
+import { formatDate, MARK_HEIGHT_PCT, type TemplateDef } from '@/lib/templates';
 import type { FolderType, TemplateType } from '@prisma/client';
 
 export type ExistingDoc = {
@@ -475,17 +475,20 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
                       if (template.noSignature && key !== 'logoMitra') return null;
                       const pos = parsePos(data[key + 'Pos']);
                       if (!pos || pos.page !== pageNum || !data[key]) return null;
-                      const h = 45 * parseFloat(data[key + 'Size'] || '1');
+                      // % of page height, not px — matches the pdf-lib stamp at
+                      // any render scale (the page img is w-full, so its pixel
+                      // size varies with viewport width)
+                      const h = MARK_HEIGHT_PCT * parseFloat(data[key + 'Size'] || '1');
                       return (
                         <div
                           key={key}
                           className="absolute"
-                          style={{ left: `${pos.x * 100}%`, top: `${pos.y * 100}%`, touchAction: 'none' }}
+                          style={{ left: `${pos.x * 100}%`, top: `${pos.y * 100}%`, height: `${h}%`, touchAction: 'none' }}
                         >
                           <img
                             src={data[key]}
                             className="block cursor-grab active:cursor-grabbing"
-                            style={{ height: `${h}px`, width: 'auto' }}
+                            style={{ height: '100%', width: 'auto' }}
                             onPointerDown={(e) => startDrag(e, key, pageNum)}
                             alt={key}
                             draggable={false}
@@ -501,8 +504,9 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
                 );
               }) : (
                 <p className="text-sm text-slate-400 px-6 text-center pt-6">
-                  Isi formulir lalu klik <b>Preview</b> — dokumen dirender dari template asli
-                  (hasil 100% sama dengan file Word/PDF final).
+                  Isi formulir lalu klik <b>Preview</b> — dokumen dirender dari template asli.
+                  Posisi TTD/stempel hasil geser mengikuti <b>PDF</b>; pada file Word (.docx)
+                  tanda tangan tetap di posisi bawaan template.
                 </p>
               )}
             </div>
