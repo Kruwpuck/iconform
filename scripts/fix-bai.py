@@ -27,8 +27,8 @@ for tab in root.iter('{http://schemas.openxmlformats.org/wordprocessingml/2006/m
 
 # Fix 2: Add space after "layanan"
 for t in root.iter('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t'):
-    if t.text and 'aktivasi layanan{namaLayanan}' in t.text:
-        t.text = t.text.replace('aktivasi layanan{namaLayanan}', 'aktivasi layanan {namaLayanan}')
+    if t.text and 'aktivasi layanan{namaLayanan}.' in t.text:
+        t.text = t.text.replace('aktivasi layanan{namaLayanan}.', 'aktivasi layanan {namaLayanan}.')
 
 # Fix 3: Remove the duplicate Terminating paragraph
 body = root.find('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}body')
