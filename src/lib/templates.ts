@@ -229,11 +229,20 @@ export const TEMPLATES: TemplateDef[] = [
       { name: 'jabatanPihakKedua', label: 'Pihak Kedua — Jabatan', default: '............' },
       { name: 'instansiPihakKedua', label: 'Pihak Kedua — Instansi', default: '............' },
       { name: 'berkedudukanPihakKedua', label: 'Pihak Kedua — Berkedudukan', multiline: true, default: '............' },
-      { name: 'perangkat', label: 'Perangkat' },
-      { name: 'jumlah', label: 'Jumlah' },
       { name: 'biaya', label: 'Jenis Biaya (dasar penagihan)' },
     ],
-    suggestName: (d) => (d.perangkat ? 'BAST_' + clean(d.perangkat) : null),
+    repeatGroups: [
+      {
+        name: 'items',
+        label: 'Perangkat yang Diserahkan',
+        minRows: 1,
+        subFields: [
+          { name: 'perangkat', label: 'Perangkat' },
+          { name: 'jumlah', label: 'Jumlah' },
+        ],
+      },
+    ],
+    suggestName: (d) => (d.nomor ? 'BAST_' + clean(d.nomor) : null),
   },
   {
     id: 'UID_JABAR',
@@ -257,7 +266,7 @@ export const TEMPLATES: TemplateDef[] = [
     file: 'BA_PENGUJIAN.docx',
     allowLogo: true,
     fields: [
-      { name: 'nomor', label: 'Nomor Berita Acara', default: '............/BAHP/............/ICON+/............' },
+      { name: 'nomor', label: 'Nomor Berita Acara', default: '............/SKU/............/SBUJBB/PLNICONPLUS/............' },
       { name: '_tglPelaksanaan', label: 'Tanggal Pelaksanaan', type: 'date', dateMaps: { hari: 'weekday', tanggal: 'day', bulan: 'month', tahun: 'yearWordsDMY' } },
       { name: 'namaPihakPertama', label: 'Pihak Pertama — Nama' },
       { name: 'jabatanPihakPertama', label: 'Pihak Pertama — Jabatan' },

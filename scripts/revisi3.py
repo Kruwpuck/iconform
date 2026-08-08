@@ -108,7 +108,7 @@ def surat_tugas(d):
 
     # 2) hanging indent for the "Sdr. {nama}" loop row so multi-row lists
     #    align under the value column instead of the left margin
-    sdr_p = next(p for p in paras if p.text.strip() == 'Sdr. {nama}')
+    sdr_p = next(p for p in paras if p.text.strip() == '- Sdr. {nama}')
     set_tabs_ind(sdr_p, [], int(left) + 1670)  # ≈ right after "Nama\t: " column
 
     # 3) normalize "Tanggal Tugas" / "Lokasi" tab stops + strip the extra

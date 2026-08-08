@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'ICONFORM',
+  title: 'PDL FORM',
   description: 'Sistem Manajemen Dokumen PLN Icon Plus Regional Jawa Barat',
 };
 

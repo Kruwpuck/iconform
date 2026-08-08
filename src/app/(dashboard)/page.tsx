@@ -17,7 +17,7 @@ export default function DashboardPage() {
   }, []);
 
   return (
-    <div className="space-y-6 max-w-6xl">
+    <div className="space-y-6 w-full">
       {/* Hero — PLN Icon Plus SBU Regional Jawa Barat brand banner */}
       <div className="relative overflow-hidden rounded-2xl bg-blue-950 px-8 py-10 shadow-lg">
         <div
@@ -41,7 +41,7 @@ export default function DashboardPage() {
             <p className="text-xs font-semibold uppercase tracking-widest text-sky-300">
               PLN Icon Plus &mdash; SBU Regional Jawa Barat
             </p>
-            <h1 className="text-3xl font-bold text-white">Dashboard ICONFORM</h1>
+            <h1 className="text-3xl font-bold text-white">Dashboard PDL FORM</h1>
             <p className="mt-1 text-sm text-blue-200">
               Sistem pembuatan &amp; pengarsipan Surat Tugas dan Berita Acara.
             </p>
