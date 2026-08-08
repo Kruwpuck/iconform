@@ -505,8 +505,7 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
               }) : (
                 <p className="text-sm text-slate-400 px-6 text-center pt-6">
                   Isi formulir lalu klik <b>Preview</b> — dokumen dirender dari template asli.
-                  Posisi TTD/stempel hasil geser mengikuti <b>PDF</b>; pada file Word (.docx)
-                  tanda tangan tetap di posisi bawaan template.
+                  Posisi TTD/stempel hasil geser ikut sama di <b>PDF</b> maupun file Word (.docx).
                 </p>
               )}
             </div>
