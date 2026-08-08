@@ -9,11 +9,6 @@ const MONTH_NAMES = [
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
 ];
 
-function monthLabel(ym: string): string {
-  const [y, m] = ym.split('-').map(Number);
-  return `${MONTH_NAMES[m - 1]} ${y}`;
-}
-
 type Props = {
   folder: FolderType | null;
 };
@@ -22,21 +17,23 @@ type Props = {
  * DocumentsTable (no pagination/edit/delete), with folder/search/month filtering. */
 export default function RiwayatBulanan({ folder }: Props) {
   const currentMonth = useMemo(() => new Date().toISOString().slice(0, 7), []);
-  const [month, setMonth] = useState(currentMonth);
-  const [months, setMonths] = useState<string[]>([currentMonth]);
+  const [month, setMonth] = useState(currentMonth); // "YYYY-MM" — what the API wants
+  const [years, setYears] = useState<string[]>([currentMonth.slice(0, 4)]);
   const [search, setSearch] = useState('');
   const [docs, setDocs] = useState<Document[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  // Populate the month dropdown from months that actually have documents (unlimited years).
+  const [year, monthNum] = month.split('-');
+
+  // Year dropdown lists every year that actually has documents (unlimited range).
   useEffect(() => {
     fetch('/api/documents?distinctMonths=1')
       .then((r) => r.json())
       .then((data: { months: string[] }) => {
-        const set = new Set(data.months ?? []);
-        set.add(currentMonth);
-        setMonths(Array.from(set).sort().reverse());
+        const set = new Set((data.months ?? []).map((m) => m.slice(0, 4)));
+        set.add(currentMonth.slice(0, 4));
+        setYears(Array.from(set).sort().reverse());
       })
       .catch(() => {});
   }, [currentMonth]);
@@ -84,12 +81,23 @@ export default function RiwayatBulanan({ folder }: Props) {
             />
           </div>
           <select
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
+            value={monthNum}
+            onChange={(e) => setMonth(`${year}-${e.target.value}`)}
             className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+            aria-label="Bulan"
           >
-            {months.map((m) => (
-              <option key={m} value={m}>{monthLabel(m)}</option>
+            {MONTH_NAMES.map((name, i) => (
+              <option key={name} value={String(i + 1).padStart(2, '0')}>{name}</option>
+            ))}
+          </select>
+          <select
+            value={year}
+            onChange={(e) => setMonth(`${e.target.value}-${monthNum}`)}
+            className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+            aria-label="Tahun"
+          >
+            {years.map((y) => (
+              <option key={y} value={y}>{y}</option>
             ))}
           </select>
         </div>
