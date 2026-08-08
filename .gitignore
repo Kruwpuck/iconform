@@ -12,3 +12,7 @@ service-account*.json
 *.pem
 scripts/__pycache__/
 .playwright-mcp/
+
+# Google Drive writes a hidden desktop.ini into every folder it mirrors
+desktop.ini
+Thumbs.db
