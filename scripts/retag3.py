@@ -219,7 +219,7 @@ def fix_surat_tugas(path: Path):
     open_el = make_loop_para(doc, '{#petugas}', first)
     first._element.addprevious(open_el)
     # Set data row text (keep "Sdr." prefix)
-    set_para_text(first, 'Sdr. {nama}')
+    set_para_text(first, '- Sdr. {nama}')
     # Remove other flat nama paras
     for p in nama_paras[1:]:
         p._element.getparent().remove(p._element)
