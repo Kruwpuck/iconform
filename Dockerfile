@@ -3,7 +3,7 @@
 # Docker VM (the Windows host itself is exempt, which is why curl works there
 # and apk/npm fail here). Without its root CA every fetch dies with
 # "certificate verify failed" / "TLS: server certificate not trusted".
-FROM node:20-alpine AS base
+FROM node:25-alpine AS base
 COPY certs/tmws-root-ca.crt /usr/local/share/ca-certificates/tmws-root-ca.crt
 RUN cat /usr/local/share/ca-certificates/tmws-root-ca.crt >> /etc/ssl/certs/ca-certificates.crt
 ENV NODE_EXTRA_CA_CERTS=/usr/local/share/ca-certificates/tmws-root-ca.crt
