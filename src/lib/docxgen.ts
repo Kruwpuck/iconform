@@ -56,6 +56,25 @@ const MARK_KEYS = ['ttd', 'stempel', 'ttd2', 'stempel2', 'logoMitra'] as const;
 const EMU_PER_PT = 12700;
 const EMU_PER_TWIP = 635; // 1 twip = 1/20 pt
 
+/** Printed in place of any field the user left blank. */
+const EMPTY_FILL = '......................';
+
+/** Keys that must stay empty: image payloads and the drag metadata beside them. */
+function isMetaKey(k: string): boolean {
+  return k.startsWith('_') || /(?:Pos|Size)$/.test(k) || (MARK_KEYS as readonly string[]).includes(k);
+}
+
+/** Replace blank values with a dotted line, in place, recursing into loop rows. */
+function fillBlanks(obj: Record<string, unknown>): void {
+  for (const [k, v] of Object.entries(obj)) {
+    if (isMetaKey(k)) continue;
+    if (v === '' || v == null) obj[k] = EMPTY_FILL;
+    else if (Array.isArray(v)) {
+      for (const row of v) if (row && typeof row === 'object') fillBlanks(row as Record<string, unknown>);
+    }
+  }
+}
+
 /** Stamp dragged ttd/stempel onto the PDF at their preview positions. */
 async function stampSignatures(pdf: Buffer, data: Record<string, string>): Promise<Buffer> {
   const marks = MARK_KEYS
@@ -239,7 +258,9 @@ export async function fillDocx(templateFile: string, data: Record<string, string
     paragraphLoop: true,
     linebreaks: true,
     modules: [imageModule()],
-    nullGetter: () => '',
+    // a tag the form never sent; image tags must stay empty so the module
+    // falls back to BLANK_PNG instead of trying to decode the dots
+    nullGetter: (part: { module?: string }) => (part?.module ? '' : EMPTY_FILL),
   });
   const renderData: Record<string, unknown> = { ...data };
   // Decode _group_* JSON arrays → docxtemplater loop arrays
@@ -267,6 +288,16 @@ export async function fillDocx(templateFile: string, data: Record<string, string
   if ('nama1' in data && !('_group_petugas' in data)) {
     renderData.petugas = [1, 2, 3].map(i => ({ nama: data[`nama${i}`] || '' })).filter(r => r.nama);
   }
+  // SURAT_TUGAS prints its petugas as one hanging-indented block on the "Nama :"
+  // line instead of a paragraph loop, so every name lines up under the first.
+  if (Array.isArray(renderData.petugas)) {
+    renderData.daftarPetugas = (renderData.petugas as { nama?: string }[])
+      .map((p) => String(p.nama ?? '').trim())
+      .filter(Boolean)
+      .map((n) => `- Sdr. ${n}`)
+      .join('\n'); // linebreaks:true turns these into <w:br/>
+  }
+  fillBlanks(renderData);
   doc.render(renderData);
   return doc.getZip().generate({ type: 'nodebuffer' }) as Buffer;
 }

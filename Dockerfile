@@ -1,12 +1,22 @@
+# ---- base ----
+# Trend Micro Web Security Cloud re-signs every HTTPS connection made from the
+# Docker VM (the Windows host itself is exempt, which is why curl works there
+# and apk/npm fail here). Without its root CA every fetch dies with
+# "certificate verify failed" / "TLS: server certificate not trusted".
+FROM node:20-alpine AS base
+COPY certs/tmws-root-ca.crt /usr/local/share/ca-certificates/tmws-root-ca.crt
+RUN cat /usr/local/share/ca-certificates/tmws-root-ca.crt >> /etc/ssl/certs/ca-certificates.crt
+ENV NODE_EXTRA_CA_CERTS=/usr/local/share/ca-certificates/tmws-root-ca.crt
+
 # ---- deps ----
-FROM node:20-alpine AS deps
+FROM base AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
 RUN npm ci
 
 # ---- build ----
-FROM node:20-alpine AS builder
+FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -15,7 +25,7 @@ RUN npm run build
 RUN npx esbuild prisma/seed.ts --bundle --platform=node --format=cjs --outfile=prisma/seed.cjs --external:@prisma/client --external:.prisma/client
 
 # ---- run ----
-FROM node:20-alpine AS runner
+FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PATH="/app/node_modules/.bin:$PATH"
