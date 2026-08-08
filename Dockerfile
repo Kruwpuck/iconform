@@ -19,6 +19,8 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PATH="/app/node_modules/.bin:$PATH"
+# host TLS-intercepting AV/proxy breaks Prisma's checkpoint ping to binaries.prisma.sh at boot
+ENV CHECKPOINT_DISABLE=1
 # libreoffice-writer: DOCX→PDF; ttf-liberation: Arial-metric fonts for exact layout
 # poppler-utils: pdftoppm renders preview pages for drag-to-position signatures
 RUN apk add --no-cache openssl libreoffice-writer ttf-liberation fontconfig poppler-utils \
