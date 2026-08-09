@@ -44,6 +44,8 @@ export type TemplateDef = {
   noSignature?: boolean;
   /** Templates with two signing parties (enables ttd2/stempel2 upload) */
   twoParties?: boolean;
+  /** Field holding the document's own date — becomes its archive date. */
+  dateField?: string;
   fields: TemplateField[];
   repeatGroups?: RepeatGroup[];
   suggestName: (data: Record<string, string>) => string | null;
@@ -81,6 +83,24 @@ export function formatDate(kind: DateKind, iso: string): string {
   }
 }
 
+/**
+ * The document's own date, used as its archive date instead of the moment it
+ * was generated. undefined when blank/invalid, so Prisma falls back to now().
+ *
+ * UTC midnight, not local: the month filter in api/documents builds its range
+ * with Date.UTC, so a local-midnight 1 Agustus in WIB (UTC+7) would be stored
+ * as 2026-07-31T17:00Z and land in the previous month's bucket.
+ */
+export function archiveDateOf(
+  def: TemplateDef,
+  data: Record<string, string>
+): Date | undefined {
+  const iso = def.dateField ? data[def.dateField] : undefined;
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return undefined;
+  const d = new Date(iso + 'T00:00:00Z');
+  return isNaN(d.getTime()) ? undefined : d;
+}
+
 const clean = (v: string) => v.replace(/\//g, '-').replace(/\s+/g, '_');
 
 const BAI_FIELDS: TemplateField[] = [
@@ -116,6 +136,7 @@ export const TEMPLATES: TemplateDef[] = [
     description: 'Surat penugasan staf PLN Icon Plus SBU Regional Jawa Barat',
     folder: 'SURAT_TUGAS',
     file: 'SURAT_TUGAS.docx',
+    dateField: '_tglSurat',
     fields: [
       { name: 'nomor', label: 'Nomor Surat', default: '............/STG/008/SUJBBICON+/............' },
       { name: 'jabatanPenerima', label: 'Jabatan Petugas', default: 'Teknisi' },
@@ -139,6 +160,7 @@ export const TEMPLATES: TemplateDef[] = [
     folder: 'BERITA_ACARA',
     file: 'BAI.docx',
     twoParties: true,
+    dateField: '_tglPelaksanaan',
     fields: BAI_FIELDS,
     suggestName: (d) => (d.noPA ? 'Surat_BAI_' + clean(d.noPA) : d.serviceId ? 'Surat_BAI_' + clean(d.serviceId) : null),
   },
@@ -149,6 +171,9 @@ export const TEMPLATES: TemplateDef[] = [
     folder: 'BERITA_ACARA',
     file: 'BAKL.docx',
     twoParties: true,
+    // two dates on this one: _tglPelaksanaan is when the work happened,
+    // _tglBA is the berita acara's own date — the latter is what we archive by
+    dateField: '_tglBA',
     fields: [
       { name: '_tglPelaksanaan', label: 'Tanggal Pelaksanaan', type: 'date', dateMaps: { hari: 'weekday', tanggal: 'day', bulan: 'month', tahun: 'year' } },
       { name: 'namaLayanan', label: 'Nama Layanan' },
@@ -187,6 +212,7 @@ export const TEMPLATES: TemplateDef[] = [
     folder: 'BERITA_ACARA',
     file: 'BAP.docx',
     twoParties: true,
+    dateField: '_tglBA',
     fields: [
       { name: '_tglPelaksanaan', label: 'Tanggal Pelaksanaan', type: 'date', dateMaps: { tanggal: 'day', bulan: 'month', tahun: 'yearWords' } },
       { name: 'namaLayanan', label: 'Nama Layanan' },
@@ -218,6 +244,7 @@ export const TEMPLATES: TemplateDef[] = [
     folder: 'BERITA_ACARA',
     file: 'BAST.docx',
     twoParties: true,
+    dateField: '_tglSerahTerima',
     fields: [
       { name: 'nomor', label: 'Nomor Berita Acara', default: '............/BAST/SBUBDGICON+/2026' },
       { name: '_tglSerahTerima', label: 'Tanggal Serah Terima', type: 'date', dateMaps: { hari: 'weekday', tanggal: 'day', bulan: 'month', tahun: 'yearWordsDMY' } },
@@ -251,6 +278,7 @@ export const TEMPLATES: TemplateDef[] = [
     folder: 'BERITA_ACARA',
     file: 'UID_JABAR.docx',
     twoParties: true,
+    dateField: '_tglPelaksanaan',
     fields: BAI_FIELDS.map((f) =>
       f.name === 'namaPelanggan' || f.name === 'instansiPelanggan'
         ? { ...f, default: 'PT. PLN (PERSERO) UNIT INDUK DISTRIBUSI JAWA BARAT' }
@@ -265,6 +293,7 @@ export const TEMPLATES: TemplateDef[] = [
     folder: 'BERITA_ACARA',
     file: 'BA_PENGUJIAN.docx',
     allowLogo: true,
+    dateField: '_tglPelaksanaan',
     fields: [
       { name: 'nomor', label: 'Nomor Berita Acara', default: '............/SKU/............/SBUJBB/PLNICONPLUS/............' },
       { name: '_tglPelaksanaan', label: 'Tanggal Pelaksanaan', type: 'date', dateMaps: { hari: 'weekday', tanggal: 'day', bulan: 'month', tahun: 'yearWordsDMY' } },

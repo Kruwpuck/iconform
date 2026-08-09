@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { uploadFile, deleteFile, prepareTargetFolder, getFileMeta } from '@/lib/gdrive';
-import { templateById } from '@/lib/templates';
+import { templateById, archiveDateOf } from '@/lib/templates';
 import { generateDoc } from '@/lib/docxgen';
 import { TemplateType } from '@prisma/client';
 import { sanitizeFilename, isValidLogo, MAX_BODY_BYTES } from '@/lib/validate';
@@ -80,6 +80,8 @@ export async function PUT(req: Request, { params }: Params) {
       driveFileIdDocx: docx.id,
       webViewLinkPdf: pdf.webViewLink,
       webViewLinkDocx: docx.webViewLink,
+      // changing the letter's date moves its archive date too
+      createdAt: archiveDateOf(def, data),
     },
   });
 

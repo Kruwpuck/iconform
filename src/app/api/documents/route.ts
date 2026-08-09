@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { uploadFile, deleteFile, prepareTargetFolder } from '@/lib/gdrive';
-import { templateById } from '@/lib/templates';
+import { templateById, archiveDateOf } from '@/lib/templates';
 import { generateDoc } from '@/lib/docxgen';
 import { FolderType, TemplateType } from '@prisma/client';
 import { sanitizeFilename, isValidLogo, MAX_BODY_BYTES } from '@/lib/validate';
@@ -109,6 +109,9 @@ export async function POST(req: Request) {
         webViewLinkPdf: pdf.webViewLink,
         webViewLinkDocx: docx.webViewLink,
         createdById: session.user?.id ?? '',
+        // archive by the letter's own date, not when it was generated;
+        // undefined falls through to @default(now())
+        createdAt: archiveDateOf(def, data),
       },
     });
     await logAction('DOC_CREATE', filename, { id: session.user?.id, name: session.user?.name });
