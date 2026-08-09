@@ -107,6 +107,9 @@ const BAI_FIELDS: TemplateField[] = [
   { name: '_tglPelaksanaan', label: 'Tanggal Pelaksanaan', type: 'date', dateMaps: { hari: 'weekday', tanggal: 'day', bulan: 'month', tahun: 'yearWords' } },
   { name: 'namaLayanan', label: 'Nama Layanan' },
   { name: 'namaPelanggan', label: 'Nama Pelanggan' },
+  // the opening sentence's "disewa oleh" party — its own field, because the
+  // renter isn't always the customer named in the spec block below
+  { name: 'disewakanOleh', label: 'Disewakan Oleh' },
   { name: 'serviceId', label: 'Service ID' },
   { name: 'interface', label: 'Interface' },
   { name: 'bandwidth', label: 'Bandwidth' },
@@ -280,7 +283,9 @@ export const TEMPLATES: TemplateDef[] = [
     twoParties: true,
     dateField: '_tglPelaksanaan',
     fields: BAI_FIELDS.map((f) =>
-      f.name === 'namaPelanggan' || f.name === 'instansiPelanggan'
+      f.name === 'namaPelanggan' ||
+      f.name === 'instansiPelanggan' ||
+      f.name === 'disewakanOleh'
         ? { ...f, default: 'PT. PLN (PERSERO) UNIT INDUK DISTRIBUSI JAWA BARAT' }
         : f
     ),
