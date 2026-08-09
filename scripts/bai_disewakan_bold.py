@@ -5,11 +5,15 @@
    kalimat pembuka kini memakai tag sendiri: {disewakanOleh}.
    Blok "Nama Pelanggan: {namaPelanggan}" tidak disentuh.
 
-2. {namaLayanan} harus tercetak tebal — di kalimat pembuka dan di baris
-   "Nama Layanan : ". Keduanya berada di dalam run non-bold, jadi run-nya
-   dipecah supaya tag berdiri di run sendiri dengan <w:b/>; sisa rPr
-   (font, ukuran, w:rtl) disalin apa adanya. Setiap {tag} tetap utuh dalam
-   satu <w:t> — docxtemplater tidak bisa membaca tag yang terbelah run.
+2. Yang tebal hanya kalimat pembuka: {namaLayanan} dan {disewakanOleh} ikut
+   tebal di situ, sejajar dengan {hari}/{tanggal}/{bulan}/{tahun}/BAIK yang
+   memang sudah tebal. Blok spesifikasi di bawahnya polos seluruhnya —
+   termasuk baris "Nama Layanan : ".
+
+   Tag yang perlu tebal berada di dalam run non-bold, jadi run-nya dipecah
+   supaya tag berdiri di run sendiri dengan <w:b/>; sisa rPr (font, ukuran,
+   w:rtl) disalin apa adanya. Setiap {tag} tetap utuh dalam satu <w:t> —
+   docxtemplater tidak bisa membaca tag yang terbelah run.
 
 Dijalankan dari root repo. Idempotent: jalan kedua kali tidak mengubah apa pun.
 Semua atribut dibaca lewat lxml, bukan python-docx — file ini ekspor Google Docs
@@ -53,6 +57,14 @@ def set_bold(run) -> None:
     rPr.insert(pos, b)
 
 
+def clear_bold(run) -> bool:
+    rPr = run.find(W + 'rPr')
+    olds = [] if rPr is None else rPr.findall(W + 'b') + rPr.findall(W + 'bCs')
+    for old in olds:
+        rPr.remove(old)
+    return bool(olds)
+
+
 def set_text(run, text: str) -> None:
     """Run hanya menyisakan satu w:t berisi `text` (tab/br ikut terbuang)."""
     t = run.find(W + 't')
@@ -70,18 +82,18 @@ def preserve(t) -> None:
         del t.attrib[XML_SPACE]
 
 
-def already_bold(p) -> bool:
-    """Paragraf sudah punya run tersendiri berisi {namaLayanan}."""
+def has_own_run(p, tag: str) -> bool:
+    """Tag sudah berdiri sendiri di satu run — artinya sudah dipecah."""
     for r in p.findall(W + 'r'):
         ts = r.findall(W + 't')
-        if len(ts) == 1 and (ts[0].text or '') == '{namaLayanan}':
+        if len(ts) == 1 and (ts[0].text or '') == tag:
             return True
     return False
 
 
 def fix_opening(p) -> bool:
     """Kalimat pembuka: namaPelanggan -> disewakanOleh, {namaLayanan} bold."""
-    if already_bold(p):
+    if has_own_run(p, '{namaLayanan}'):
         return False
     for r in p.findall(W + 'r'):
         ts = r.findall(W + 't')
@@ -103,19 +115,22 @@ def fix_opening(p) -> bool:
     return False
 
 
-def fix_label(p) -> bool:
-    """Baris "Nama Layanan \t: {namaLayanan}": tagnya pindah ke run bold."""
-    if already_bold(p):
+def bold_renter(p) -> bool:
+    """Kalimat pembuka: {disewakanOleh} pindah ke run tebal sendiri.
+
+    Dijalankan setelah fix_opening, jadi tag ini sudah berada di run
+    " yang disewa oleh {disewakanOleh} Dengan hasil " yang non-bold."""
+    if has_own_run(p, '{disewakanOleh}'):
         return False
     for r in p.findall(W + 'r'):
         ts = r.findall(W + 't')
-        if not ts or '{namaLayanan}' not in (ts[-1].text or ''):
+        if len(ts) != 1 or '{disewakanOleh}' not in (ts[0].text or ''):
             continue
-        pre, _, post = (ts[-1].text).partition('{namaLayanan}')
-        ts[-1].text = pre           # run asli berhenti tepat sebelum tag
-        preserve(ts[-1])
-        at = list(p).index(r) + 1
-        for off, (text, bold) in enumerate((('{namaLayanan}', True), (post, False))):
+        pre, _, post = (ts[0].text).partition('{disewakanOleh}')
+        at = list(p).index(r)
+        p.remove(r)
+        off = 0
+        for text, bold in ((pre, False), ('{disewakanOleh}', True), (post, False)):
             if not text:
                 continue
             new = copy.deepcopy(r)
@@ -123,8 +138,16 @@ def fix_label(p) -> bool:
             if bold:
                 set_bold(new)
             p.insert(at + off, new)
+            off += 1
         return True
     return False
+
+
+def unbold_label(p) -> bool:
+    """Baris "Nama Layanan \t: {namaLayanan}" harus polos seluruhnya."""
+    # list dulu, bukan any(): any() berhenti di run tebal pertama dan
+    # meninggalkan run tebal sesudahnya
+    return any([clear_bold(r) for r in p.findall(W + 'r')])
 
 
 def dump(root, *indexes) -> None:
@@ -155,7 +178,7 @@ def main() -> None:
     label = next(p for p in body.iter(W + 'p')
                  if ''.join(t.text or '' for t in p.iter(W + 't')).startswith('Nama Layanan'))
 
-    changed = fix_opening(opening) | fix_label(label)
+    changed = fix_opening(opening) | bold_renter(opening) | unbold_label(label)
     if not changed:
         print('already applied — nothing to do')
         dump(root, 1, 3)

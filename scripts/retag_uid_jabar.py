@@ -113,8 +113,8 @@ SENTENCE = [
 
 BODY = {
     1: SENTENCE,
-    # the only value this document bolds — the opening sentence has no service name
-    3: [('Nama Layanan \t: ', False), ('{namaLayanan}', True)],
+    # plain, like the master: only the opening sentence is bolded
+    3: [('Nama Layanan \t: {namaLayanan}', False)],
     4: [('Service ID\t: {serviceId}', False)],
     5: [('Interface\t: {interface}', False)],
     6: [('Bandwidth\t: {bandwidth}', False)],
