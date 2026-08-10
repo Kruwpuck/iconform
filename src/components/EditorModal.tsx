@@ -95,6 +95,12 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
   const [logo, setLogo] = useState<string | null>(draft?.logo ?? existingDoc?.logoBase64 ?? null);
   const [filename, setFilename] = useState(draft?.filename ?? existingDoc?.filename ?? '');
   const [pages, setPages] = useState<string[]>([]);
+  // A rendered preview only matches the saved PDF as long as no field changed
+  // since: editing text reflows the body (and can push the signature block to a
+  // second page), so a stale preview is exactly the "hasil simpan beda dari
+  // preview" report. Dragging/resizing a mark does not reflow anything, so it
+  // deliberately does not set this.
+  const [stale, setStale] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -114,6 +120,7 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
   }, [onClose]);
 
   function setField(name: string, value: string) {
+    setStale(true);
     setData((prev) => {
       const next = { ...prev, [name]: value };
       const f = template.fields.find((x) => x.name === name);
@@ -138,6 +145,8 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
     reader.onload = (ev) => {
       const newLogo = ev.target?.result as string;
       setLogo(newLogo);
+      setStale(true); // the mitra logo sits in the header — it reflows nothing
+                      // below it, but the preview still has to show it
       // also register as a draggable mark so the partner logo can be positioned
       setData((prev) => ({
         ...prev,
@@ -239,6 +248,7 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
       }
       const json = await res.json();
       setPages(json.pages as string[]);
+      setStale(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Gagal membuat preview.');
     } finally {
@@ -336,6 +346,7 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
 
               function setGroupRows(next: Record<string, string>[]) {
                 const val = JSON.stringify(next);
+                setStale(true);
                 setData((prev) => {
                   const d = { ...prev, [groupKey]: val };
                   if (!existingDoc) saveDraft(template.id, d, filename, logo);
@@ -357,6 +368,7 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
                 // NODIN: recompute totalTagihan
                 if (g.name === 'items') {
                   const total = next.reduce((s, r) => s + parseFloat((r.jumlahTotal || '0').replace(/[,.]/g, '')), 0);
+                  setStale(true);
                   setData((prev) => {
                     const d = { ...prev, [groupKey]: JSON.stringify(next), totalTagihan: total.toString() };
                     if (!existingDoc) saveDraft(template.id, d, filename, logo);
@@ -505,18 +517,26 @@ export default function EditorModal({ template, existingDoc, onClose, onSaved }:
               }) : (
                 <p className="text-sm text-slate-400 px-6 text-center pt-6">
                   Isi formulir lalu klik <b>Preview</b> — dokumen dirender dari template asli.
-                  Posisi TTD/stempel hasil geser ikut sama di <b>PDF</b> maupun file Word (.docx).
+                  Posisi TTD/stempel hasil geser dipakai di <b>PDF</b>; file Word (.docx)
+                  memakai posisi tanda tangan bawaan template.
                 </p>
               )}
             </div>
-            <button
-              onClick={handlePreview}
-              disabled={previewing}
-              className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg border border-sky-300 text-sky-700 hover:bg-sky-50 disabled:opacity-60"
-            >
-              <Eye size={14} />
-              {previewing ? 'Merender…' : 'Preview'}
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handlePreview}
+                disabled={previewing}
+                className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg border border-sky-300 text-sky-700 hover:bg-sky-50 disabled:opacity-60"
+              >
+                <Eye size={14} />
+                {previewing ? 'Merender…' : 'Preview'}
+              </button>
+              {pages.length > 0 && stale && (
+                <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                  Isi formulir berubah — klik Preview lagi, hasil simpan mengikuti isi terbaru.
+                </span>
+              )}
+            </div>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
               <div>

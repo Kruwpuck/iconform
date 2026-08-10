@@ -53,9 +53,6 @@ const MARK_HEIGHT_PT = 33.75;
 /** Every draggable mark tag. Order fixes the z-order of stacked marks. */
 const MARK_KEYS = ['ttd', 'stempel', 'ttd2', 'stempel2', 'logoMitra'] as const;
 
-const EMU_PER_PT = 12700;
-const EMU_PER_TWIP = 635; // 1 twip = 1/20 pt
-
 /** Printed in place of any field the user left blank. */
 const EMPTY_FILL = '......................';
 
@@ -97,157 +94,6 @@ async function stampSignatures(pdf: Buffer, data: Record<string, string>): Promi
     });
   }
   return Buffer.from(await doc.save());
-}
-
-const NS_WP = 'http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing';
-const NS_A = 'http://schemas.openxmlformats.org/drawingml/2006/main';
-const NS_PIC = 'http://schemas.openxmlformats.org/drawingml/2006/picture';
-const NS_R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
-
-/**
- * A page-anchored floating picture. `allowOverlap="1"` + `<wp:wrapNone/>` is
- * what lets marks sit on top of each other and on top of text, exactly like
- * the pdf-lib stamp does. `layoutInCell="0"` keeps the offsets relative to the
- * page even when the host paragraph lives inside a table cell.
- * All namespaces are declared inline — most templates have no drawings, so the
- * document root can't be relied on to declare wp/a/pic/r.
- */
-function anchorXml(o: {
-  relId: string;
-  id: number;
-  name: string;
-  xEmu: number;
-  yEmu: number;
-  wEmu: number;
-  hEmu: number;
-}): string {
-  return (
-    `<w:r><w:drawing>` +
-    `<wp:anchor xmlns:wp="${NS_WP}" distT="0" distB="0" distL="0" distR="0" simplePos="0"` +
-    ` relativeHeight="${251658240 + o.id}" behindDoc="0" locked="0" layoutInCell="0" allowOverlap="1">` +
-    `<wp:simplePos x="0" y="0"/>` +
-    `<wp:positionH relativeFrom="page"><wp:posOffset>${o.xEmu}</wp:posOffset></wp:positionH>` +
-    `<wp:positionV relativeFrom="page"><wp:posOffset>${o.yEmu}</wp:posOffset></wp:positionV>` +
-    `<wp:extent cx="${o.wEmu}" cy="${o.hEmu}"/>` +
-    `<wp:effectExtent l="0" t="0" r="0" b="0"/>` +
-    `<wp:wrapNone/>` +
-    `<wp:docPr id="${o.id}" name="${o.name}"/>` +
-    `<wp:cNvGraphicFramePr/>` +
-    `<a:graphic xmlns:a="${NS_A}"><a:graphicData uri="${NS_PIC}">` +
-    `<pic:pic xmlns:pic="${NS_PIC}">` +
-    `<pic:nvPicPr><pic:cNvPr id="0" name="${o.name}"/><pic:cNvPicPr/></pic:nvPicPr>` +
-    `<pic:blipFill><a:blip xmlns:r="${NS_R}" r:embed="${o.relId}"/>` +
-    `<a:stretch><a:fillRect/></a:stretch></pic:blipFill>` +
-    `<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${o.wEmu}" cy="${o.hEmu}"/></a:xfrm>` +
-    `<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>` +
-    `</pic:pic></a:graphicData></a:graphic>` +
-    `</wp:anchor>` +
-    `</w:drawing></w:r>`
-  );
-}
-
-/** Page size in EMU, read from the section's `w:pgSz` (twips); A4 fallback. */
-function pageSizeEmu(xml: string): { w: number; h: number } {
-  const tag = /<w:pgSz\b[^>]*>/.exec(xml)?.[0] ?? '';
-  const w = /\bw:w="(\d+)"/.exec(tag)?.[1];
-  const h = /\bw:h="(\d+)"/.exec(tag)?.[1];
-  return w && h
-    ? { w: +w * EMU_PER_TWIP, h: +h * EMU_PER_TWIP }
-    : { w: Math.round(595.276 * EMU_PER_PT), h: Math.round(841.89 * EMU_PER_PT) }; // A4
-}
-
-/**
- * Insert dragged marks into a rendered DOCX as page-anchored floating images,
- * so Word shows them at the same spot (and with the same overlap) as the
- * pdf-lib–stamped PDF. Expects a DOCX whose *inline* copies of these marks
- * were already blanked, otherwise each mark renders twice.
- */
-function anchorMarks(docx: Buffer, data: Record<string, string>): Buffer {
-  const marks = MARK_KEYS
-    .map((k) => ({
-      key: k,
-      img: data[k],
-      pos: parsePos(data[k + 'Pos']),
-      scale: parseFloat(data[k + 'Size'] || '1') || 1,
-    }))
-    .filter((m) => m.img && m.pos);
-  if (!marks.length) return docx;
-
-  const zip = new PizZip(docx);
-  const docEntry = zip.file('word/document.xml');
-  const relsEntry = zip.file('word/_rels/document.xml.rels');
-  const typesEntry = zip.file('[Content_Types].xml');
-  if (!docEntry || !relsEntry || !typesEntry) return docx;
-
-  let xml = docEntry.asText();
-  let rels = relsEntry.asText();
-  let types = typesEntry.asText();
-  const page = pageSizeEmu(xml);
-
-  // keep new ids clear of whatever the template already uses
-  let nextRel = Math.max(0, ...[...rels.matchAll(/Id="rId(\d+)"/g)].map((m) => +m[1])) + 1;
-  let nextDocPr = Math.max(0, ...[...xml.matchAll(/<wp:docPr\s+id="(\d+)"/g)].map((m) => +m[1])) + 1;
-
-  const extensions = new Set<string>();
-  const runsByPage = new Map<number, string[]>();
-
-  for (const { key, img, pos, scale } of marks) {
-    const m = /^data:image\/(png|jpe?g);base64,(.+)$/.exec(img!);
-    if (!m) continue;
-    const ext = m[1] === 'jpg' ? 'jpeg' : m[1];
-    const bytes = Buffer.from(m[2], 'base64');
-
-    let ratio = 1;
-    try {
-      const { width = 1, height = 1 } = imageSize(bytes);
-      ratio = width / height;
-    } catch {
-      continue; // undecodable image — the PDF stamp skips it too
-    }
-
-    const hEmu = Math.round(MARK_HEIGHT_PT * scale * EMU_PER_PT);
-    const wEmu = Math.round(hEmu * ratio);
-    // pdf-lib places the image's top edge at pos.y * pageHeight from the top;
-    // wp:positionV posOffset is measured from the page top as well.
-    const xEmu = Math.round(pos!.x * page.w);
-    const yEmu = Math.round(pos!.y * page.h);
-
-    const relId = `rId${nextRel++}`;
-    const target = `media/mark-${key}.${ext}`;
-    zip.file(`word/${target}`, bytes);
-    rels = rels.replace(
-      '</Relationships>',
-      `<Relationship Id="${relId}" Type="${NS_R}/image" Target="${target}"/></Relationships>`
-    );
-    extensions.add(ext);
-
-    const runs = runsByPage.get(pos!.page) ?? [];
-    runs.push(anchorXml({ relId, id: nextDocPr++, name: `mark-${key}`, xEmu, yEmu, wEmu, hEmu }));
-    runsByPage.set(pos!.page, runs);
-  }
-
-  for (const ext of extensions) {
-    if (!new RegExp(`<Default[^>]*Extension="${ext}"`, 'i').test(types)) {
-      types = types.replace('<Default', `<Default Extension="${ext}" ContentType="image/${ext}"/><Default`);
-    }
-  }
-
-  // An anchored run adds no line height, so hosting it in an existing paragraph
-  // keeps the layout (and page count) untouched. A page-anchored drawing renders
-  // on whichever page its host paragraph falls on: first paragraph for page 1,
-  // last for anything beyond.
-  // ponytail: exact host for page >2 needs real layout info — every template is
-  // 1-2 pages with the marks on the last one, so first/last covers it.
-  for (const [pageNum, runs] of runsByPage) {
-    const at = pageNum <= 1 ? xml.indexOf('</w:p>') : xml.lastIndexOf('</w:p>');
-    if (at < 0) continue;
-    xml = xml.slice(0, at) + runs.join('') + xml.slice(at);
-  }
-
-  zip.file('word/document.xml', xml);
-  zip.file('word/_rels/document.xml.rels', rels);
-  zip.file('[Content_Types].xml', types);
-  return zip.generate({ type: 'nodebuffer' }) as Buffer;
 }
 
 /** Fill a DOCX template (docxtemplater {tags}, {%image} tags) with form data. */
@@ -303,31 +149,32 @@ export async function fillDocx(templateFile: string, data: Record<string, string
 }
 
 /**
- * DOCX + PDF pair, both showing dragged marks at the same spot.
+ * DOCX + PDF pair.
  *
- * Dragged marks are dropped from the rendered body (an inline image can't move
- * and can't overlap), then re-added per format at the preview position: as
- * page-anchored floating pictures in the DOCX, and as a pdf-lib stamp in the
- * PDF. Two renderers are unavoidable because LibreOffice drops floating
- * anchors on DOCX→PDF, but both consume the same fractional coordinates and
- * the same MARK_HEIGHT_PT, so the outputs line up.
- * Marks that were never dragged stay inline at the template's own spot.
+ * The DOCX always keeps its marks inline, in the template's own signature cell.
+ * The dragged position is deliberately ignored there: it is a fraction of the
+ * page measured against the LibreOffice-rendered preview, and Word lays the
+ * same body out more tightly — on BA Pengujian the signature block sits ~50pt
+ * higher in Word, so an absolutely positioned mark drifts well below the names.
+ * An inline mark follows the names in whichever renderer opens the file.
+ *
+ * The PDF is the one that honours the drag: marks are blanked from the body
+ * (an inline image can't move or overlap) and stamped back on by pdf-lib at the
+ * preview coordinates, which is exactly what the editor overlay shows.
  */
 export async function generateDoc(
   templateFile: string,
   data: Record<string, string>
 ): Promise<{ docx: Buffer; pdf: Buffer }> {
+  const docx = await fillDocx(templateFile, data);
   const dragged = MARK_KEYS.filter((k) => data[k] && parsePos(data[k + 'Pos']));
-  if (!dragged.length) {
-    const plain = await fillDocx(templateFile, data);
-    return { docx: plain, pdf: await docxToPdf(plain) };
-  }
-  const base = await fillDocx(templateFile, {
+  if (!dragged.length) return { docx, pdf: await docxToPdf(docx) };
+
+  const blanked = await fillDocx(templateFile, {
     ...data,
     ...Object.fromEntries(dragged.map((k) => [k, ''])),
   });
-  const pdf = await stampSignatures(await docxToPdf(base), data);
-  return { docx: anchorMarks(base, data), pdf };
+  return { docx, pdf: await stampSignatures(await docxToPdf(blanked), data) };
 }
 
 /** Render PDF pages to PNG (96 dpi) via pdftoppm for the draggable preview. */
