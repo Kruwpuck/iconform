@@ -18,6 +18,10 @@ from pathlib import Path
 
 from lxml import etree
 
+# jc=both punya masalah yang sama di sini: begitu nilainya wrap, spasinya
+# melebar. Logikanya sudah ada di skrip BAI — dipakai ulang, bukan disalin.
+from rapikan_justify_bai import unjustify
+
 ROOT = Path(__file__).resolve().parent.parent
 MASTER = ROOT / 'templates' / 'Berita Acara' / (
     'TEMPLATE DOK Berita Acara Instalasi – Aktivasi (BAI-BAA) JABAR.docx')
@@ -229,6 +233,7 @@ def build():
     set_row_height(rows[1])
 
     widen_label_column(body)
+    unjustify(body)
     drop_trailing_blanks(body)
 
     doc = etree.tostring(root, xml_declaration=True, encoding='UTF-8', standalone=True)
@@ -335,6 +340,15 @@ def verify():
         counts = [len(tc.findall(q('p'))) for tc in tr.findall(q('tc'))]
         assert len(set(counts)) == 1, 'row %d paragraph counts differ: %s' % (ri, counts)
     print('signature table: equal paragraph counts in every row')
+
+    # justify hanya di prosa: baris berkolom yang wrap akan merenggang
+    justified = [ptext(p)[:40] for p in body.iter(q('p'))
+                 if (p.find(q('pPr')) is not None
+                     and p.find(q('pPr')).find(q('jc')) is not None
+                     and p.find(q('pPr')).find(q('jc')).get(q('val')) == 'both')]
+    assert all(t.strip().startswith(('Pada hari ini', 'Demikian berita acara'))
+               for t in justified), 'jc=both di luar prosa: %s' % justified
+    print('jc=both hanya di %d paragraf prosa' % len(justified))
     print('all checks passed')
 
 
