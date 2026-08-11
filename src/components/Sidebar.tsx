@@ -1,5 +1,5 @@
-import { auth, signOut } from '@/auth';
-import { LayoutDashboard, LogOut, FileText, ShieldCheck, Users, KeyRound, ScrollText } from 'lucide-react';
+import { signOut } from '@/auth';
+import { LayoutDashboard, LogOut, FileText, ShieldCheck, KeyRound, ScrollText } from 'lucide-react';
 import Link from 'next/link';
 import { TEMPLATES } from '@/lib/templates';
 import SidebarShell from '@/components/SidebarShell';
@@ -10,8 +10,6 @@ const LINK =
   'flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors group-data-[collapsed]/sb:justify-center group-data-[collapsed]/sb:px-0';
 
 export default async function Sidebar() {
-  const session = await auth();
-  const isAdmin = session?.user?.isAdmin;
   return (
     <SidebarShell>
       <div className="mb-4">
@@ -24,6 +22,14 @@ export default async function Sidebar() {
         <Link href="/" title="Dashboard" className={`${LINK} text-white hover:bg-blue-800`}>
           <LayoutDashboard size={16} className="shrink-0" />
           <span className={LABEL}>Dashboard</span>
+        </Link>
+        <Link
+          href="/admin/logs"
+          title="Log Aktivitas"
+          className={`${LINK} text-white/80 hover:bg-blue-800 hover:text-white`}
+        >
+          <ScrollText size={16} className="shrink-0" />
+          <span className={LABEL}>Log Aktivitas</span>
         </Link>
 
         <p className={`text-xs text-blue-400 uppercase tracking-wider px-3 pt-4 pb-1 ${LABEL}`}>Jenis Surat</p>
@@ -38,27 +44,9 @@ export default async function Sidebar() {
             <span className={LABEL}>{t.label}</span>
           </Link>
         ))}
-        {isAdmin && (
-          <>
-            <p className={`text-xs text-blue-400 uppercase tracking-wider px-3 pt-4 pb-1 ${LABEL}`}>Admin</p>
-            <Link
-              href="/admin/users"
-              title="Kelola User"
-              className={`${LINK} text-white/80 hover:bg-blue-800 hover:text-white`}
-            >
-              <Users size={14} className="shrink-0" />
-              <span className={LABEL}>Kelola User</span>
-            </Link>
-            <Link
-              href="/admin/logs"
-              title="Log Aktivitas"
-              className={`${LINK} text-white/80 hover:bg-blue-800 hover:text-white`}
-            >
-              <ScrollText size={14} className="shrink-0" />
-              <span className={LABEL}>Log Aktivitas</span>
-            </Link>
-          </>
-        )}
+        {/* Kelola User sengaja tidak dipasang di nav: cuma ada satu akun super
+            admin, jadi menunya disembunyikan. Halaman /admin/users dan API-nya
+            masih hidup kalau URL-nya dibuka langsung. */}
 
         <p className={`text-xs text-blue-400 uppercase tracking-wider px-3 pt-4 pb-1 ${LABEL}`}>Akun</p>
         <Link

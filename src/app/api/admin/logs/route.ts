@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
+import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
-import { requireSeedAdmin } from '@/lib/users';
 
-// GET → recent activity log (seed admin only)
+// GET → recent activity log. Deliberately open to every signed-in user: the
+// log moved out of the admin section and into the normal feature list. Note
+// this exposes every actor's activity, not just the caller's own.
 export async function GET() {
-  const admin = await requireSeedAdmin();
-  if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const logs = await prisma.auditLog.findMany({
     orderBy: { createdAt: 'desc' },
