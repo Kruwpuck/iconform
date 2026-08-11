@@ -26,7 +26,7 @@ function Wait-Healthy {
         if ($status -match "Up") { Write-Host "App is up."; return }
         Start-Sleep -Seconds 2
     }
-    Write-Warning "App not up after 120s — run: .\deploy.ps1 logs"
+    Write-Warning "App not up after 120s - run: .\deploy.ps1 logs"
 }
 
 switch ($cmd) {
@@ -54,5 +54,5 @@ switch ($cmd) {
     "seed"    { docker compose exec $APP node prisma/seed.cjs }
     "psql"    { docker compose exec $DB psql -U iconform -d iconform }
     "status"  { docker compose ps }
-    default   { Write-Error "Unknown command: $cmd — see header for options" }
+    default   { Write-Error "Unknown command: $cmd - see header for options" }
 }
