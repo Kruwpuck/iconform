@@ -29,7 +29,10 @@ function imageModule() {
       return m ? Buffer.from(m[1], 'base64') : BLANK_PNG;
     },
     getSize: (img: Buffer) => {
-      if (img.equals(BLANK_PNG)) return [1, 1];
+      // A blank mark still reserves the full mark height: the PDF/preview path
+      // blanks the dragged marks out of the body, and a 1x1 image collapses the
+      // signature paragraph so the name rides up under the stamped mark.
+      if (img.equals(BLANK_PNG)) return [1, SIGNATURE_HEIGHT_PX];
       try {
         const { width = 1, height = 1 } = imageSize(img);
         return [Math.round((width * SIGNATURE_HEIGHT_PX) / height), SIGNATURE_HEIGHT_PX];
@@ -96,6 +99,51 @@ async function stampSignatures(pdf: Buffer, data: Record<string, string>): Promi
   return Buffer.from(await doc.save());
 }
 
+const WP_NS = 'http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing';
+
+/**
+ * Declare the wordprocessingDrawing namespace on the root when a drawing needs
+ * it. The image module emits wp:-prefixed elements without declaring the prefix,
+ * so inserting a mark into a template that has no drawing of its own (BAI, BAP)
+ * produced malformed XML: LibreOffice guessed at it, Word refused the file.
+ */
+function ensureWpNs(xml: string): string {
+  if (!xml.includes('<wp:') || xml.includes(`xmlns:wp="${WP_NS}"`)) return xml;
+  return xml.replace(/<w:document\b/, `<w:document xmlns:wp="${WP_NS}"`);
+}
+
+/**
+ * Turn the image module's inline drawings into floating "in front of text"
+ * anchors (wrapNone + behindDoc=0), which is the layout the user wants for
+ * every uploaded mark. Safe to run blind: the templates themselves ship zero
+ * <wp:inline> drawings, so every one in the rendered XML is a module mark.
+ *
+ * Marks in the same paragraph keep their left-to-right order by offsetting each
+ * one past the previous width — with no gap, so ttd and stempel sit joined.
+ */
+function floatMarks(xml: string): string {
+  return xml.replace(/<w:p[ >][\s\S]*?<\/w:p>/g, (para) => {
+    let xOffset = 0;
+    return para.replace(/<wp:inline\b([^>]*)>([\s\S]*?)<\/wp:inline>/g, (whole, attrs: string, inner: string) => {
+      // wrapNone has a fixed slot before wp:docPr; without it we can't build a
+      // schema-valid anchor, so leave the drawing inline.
+      if (!inner.includes('<wp:docPr')) return whole;
+      const cx = Number(/<wp:extent[^>]*\bcx="(\d+)"/.exec(inner)?.[1] ?? 0);
+      const off = xOffset;
+      xOffset += cx;
+      const pos =
+        '<wp:simplePos x="0" y="0"/>' +
+        `<wp:positionH relativeFrom="column"><wp:posOffset>${off}</wp:posOffset></wp:positionH>` +
+        '<wp:positionV relativeFrom="paragraph"><wp:posOffset>0</wp:posOffset></wp:positionV>';
+      const body = inner.replace('<wp:docPr', '<wp:wrapNone/><wp:docPr');
+      return (
+        `<wp:anchor${attrs} simplePos="0" relativeHeight="251658240" behindDoc="0"` +
+        ` locked="0" layoutInCell="1" allowOverlap="1">${pos}${body}</wp:anchor>`
+      );
+    });
+  });
+}
+
 /** Fill a DOCX template (docxtemplater {tags}, {%image} tags) with form data. */
 export async function fillDocx(templateFile: string, data: Record<string, string>): Promise<Buffer> {
   const src = await fs.readFile(path.join(TPL_DIR, templateFile));
@@ -145,7 +193,10 @@ export async function fillDocx(templateFile: string, data: Record<string, string
   }
   fillBlanks(renderData);
   doc.render(renderData);
-  return doc.getZip().generate({ type: 'nodebuffer' }) as Buffer;
+  const out = doc.getZip();
+  const body = out.file('word/document.xml');
+  if (body) out.file('word/document.xml', ensureWpNs(floatMarks(body.asText())));
+  return out.generate({ type: 'nodebuffer' }) as Buffer;
 }
 
 /**

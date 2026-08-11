@@ -51,6 +51,21 @@ def is_blank(p):
     return not list(p.iter(q('drawing')))
 
 
+def sisakan_ruang(ttd_p):
+    """Sisakan tinggi mark di bawah paragraf ttd.
+
+    docxgen.floatMarks() mengubah drawing mark jadi anchor "in front of text",
+    jadi gambarnya tidak lagi menambah tinggi baris. Tanpa jarak bawah, mark
+    menimpa {namaPemberi}. 680 twip = 34pt = SIGNATURE_HEIGHT_PX (45px @96dpi).
+    """
+    pPr = ttd_p.find(q('pPr'))
+    spacing = pPr.find(q('spacing'))
+    if spacing is None:
+        spacing = etree.Element(q('spacing'))
+        pPr.insert(0, spacing)
+    spacing.set(q('after'), '680')
+
+
 def main():
     z = zipfile.ZipFile(PATH)
     root = etree.fromstring(z.read(DOC))
@@ -60,7 +75,10 @@ def main():
 
     ttd_p = next(p for p in children if p.tag == q('p') and '{%ttd}' in text_of(p))
     if '{%stempel}' in text_of(ttd_p):
-        print('SURAT_TUGAS.docx sudah rapi — tidak ada yang perlu diubah')
+        sisakan_ruang(ttd_p)
+        doc = etree.tostring(root, xml_declaration=True, encoding='UTF-8', standalone=True)
+        rewrite(PATH, doc)
+        print('SURAT_TUGAS.docx: ttd+stempel sudah satu paragraf, ruang bawah diset')
         return
 
     ttd_idx = children.index(ttd_p)
@@ -87,6 +105,8 @@ def main():
         pPr.insert(0, keep_next)
     keep_next = pPr.find(q('keepNext'))
     keep_next.set(q('val'), '1')
+
+    sisakan_ruang(ttd_p)
 
     # buang paragraf kosong di antara ttd dan {namaPemberi} — hanya yang
     # benar-benar tanpa teks dan tanpa drawing
