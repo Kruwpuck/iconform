@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { verify as totpVerify } from 'otplib';
-import { auth } from '@/auth';
-import { prisma } from '@/lib/prisma';
+import { auth } from '@/server/auth';
+import { prisma } from '@/server/infra/prisma';
 
 // GET → context for the reset page: is this a forced reset, is 2FA enabled
 export async function GET() {

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
-import { prisma } from '@/lib/prisma';
+import { auth } from '@/server/auth';
+import { prisma } from '@/server/infra/prisma';
 
 // GET → recent activity log. Deliberately open to every signed-in user: the
 // log moved out of the admin section and into the normal feature list. Note

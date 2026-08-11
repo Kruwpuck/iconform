@@ -2,7 +2,7 @@
 
 import { useRef, useState, useEffect } from 'react';
 import { X, Eye, Save, ImagePlus } from 'lucide-react';
-import { formatDate, MARK_HEIGHT_PCT, type TemplateDef } from '@/lib/templates';
+import { formatDate, MARK_HEIGHT_PCT, type TemplateDef } from '@/domain/templates';
 import type { FolderType, TemplateType } from '@prisma/client';
 
 export type ExistingDoc = {

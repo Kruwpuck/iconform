@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { auth } from '@/server/auth';
 import { generateSecret, generateURI, verify as totpVerify } from 'otplib';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/server/infra/prisma';
 
 async function getUser() {
   const session = await auth();

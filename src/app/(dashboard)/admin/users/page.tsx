@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { auth } from '@/auth';
+import { auth } from '@/server/auth';
 import UsersManager from './UsersManager';
 
 export default async function AdminUsersPage() {

@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { auth } from '@/auth';
+import { auth } from '@/server/auth';
 import LogViewer from './LogViewer';
 
 // Log Aktivitas is a normal feature now: every signed-in user can read it.

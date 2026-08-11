@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
-import { auth } from '@/auth';
-import Sidebar from '@/components/Sidebar';
+import { auth } from '@/server/auth';
+import Sidebar from '@/ui/layout/Sidebar';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();

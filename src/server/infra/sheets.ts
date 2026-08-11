@@ -1,3 +1,4 @@
+import 'server-only';
 import { google } from 'googleapis';
 
 const SHEET_ID = process.env.GDRIVE_SHEET_NOMOR_ID;

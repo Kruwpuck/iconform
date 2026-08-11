@@ -1,8 +1,9 @@
+import 'server-only';
 import NextAuth, { CredentialsSignin } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { verify as totpVerify } from 'otplib';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/server/infra/prisma';
 
 class TwoFactorRequired extends CredentialsSignin {
   code = '2FA_REQUIRED';

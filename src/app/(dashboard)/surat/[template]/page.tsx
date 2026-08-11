@@ -2,9 +2,9 @@
 
 import { useState, useRef } from 'react';
 import { useParams } from 'next/navigation';
-import DocumentsTable, { type TableHandle } from '@/components/DocumentsTable';
-import EditorModal, { type ExistingDoc } from '@/components/EditorModal';
-import { TEMPLATES } from '@/lib/templates';
+import DocumentsTable, { type TableHandle } from '@/ui/documents/DocumentsTable';
+import EditorModal, { type ExistingDoc } from '@/ui/documents/EditorModal';
+import { TEMPLATES } from '@/domain/templates';
 import type { TemplateType } from '@prisma/client';
 
 export default function SuratPage() {

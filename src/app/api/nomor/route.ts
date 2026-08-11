@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { readNomorList } from '@/lib/sheets';
+import { readNomorList } from '@/server/infra/sheets';
 
 // ponytail: 60s cache — nomor list changes infrequently, avoids per-keystroke Sheets API call
 export const revalidate = 60;

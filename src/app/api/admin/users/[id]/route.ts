@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { prisma } from '@/lib/prisma';
-import { requireSeedAdmin, randomPassword } from '@/lib/users';
-import { logAction } from '@/lib/audit';
+import { prisma } from '@/server/infra/prisma';
+import { requireSeedAdmin, randomPassword } from '@/server/services/users';
+import { logAction } from '@/server/infra/audit';
 
 // guard: target must be an account the seed admin provisioned
 async function ownedTarget(adminId: string, id: string) {

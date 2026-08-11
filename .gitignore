@@ -16,3 +16,14 @@ scripts/__pycache__/
 # Google Drive writes a hidden desktop.ini into every folder it mirrors
 desktop.ini
 Thumbs.db
+
+# Agent/tooling artifacts — not part of the product
+.claude/
+/scratchpad/
+
+# Database dumps — may contain real customer data
+*.sql
+!prisma/**/*.sql
+*.dump
+
+.DS_Store

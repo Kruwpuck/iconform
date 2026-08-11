@@ -1,4 +1,5 @@
-import { prisma } from '@/lib/prisma';
+import 'server-only';
+import { prisma } from '@/server/infra/prisma';
 
 export type AuditAction =
   | 'DOC_CREATE' | 'DOC_EDIT' | 'DOC_DELETE'

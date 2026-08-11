@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import FolderCards from '@/components/FolderCards';
-import RiwayatBulanan from '@/components/RiwayatBulanan';
+import FolderCards from '@/ui/documents/FolderCards';
+import RiwayatBulanan from '@/ui/documents/RiwayatBulanan';
 import type { FolderType } from '@prisma/client';
 
 export default function DashboardPage() {

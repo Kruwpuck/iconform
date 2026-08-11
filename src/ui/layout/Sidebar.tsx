@@ -1,8 +1,8 @@
-import { signOut } from '@/auth';
+import { signOut } from '@/server/auth';
 import { LayoutDashboard, LogOut, FileText, ShieldCheck, KeyRound, ScrollText } from 'lucide-react';
 import Link from 'next/link';
-import { TEMPLATES } from '@/lib/templates';
-import SidebarShell from '@/components/SidebarShell';
+import { TEMPLATES } from '@/domain/templates';
+import SidebarShell from '@/ui/layout/SidebarShell';
 
 // Text that disappears when SidebarShell is collapsed, leaving icons only.
 const LABEL = 'group-data-[collapsed]/sb:hidden';

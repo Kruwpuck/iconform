@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
-import { templateById } from '@/lib/templates';
-import { generateDoc, parsePos, pdfToPngs } from '@/lib/docxgen';
+import { auth } from '@/server/auth';
+import { templateById } from '@/domain/templates';
+import { renderPreview } from '@/server/services/documents';
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -17,27 +17,11 @@ export async function POST(req: Request) {
 
   if (logo) data.logoMitra = logo;
 
-  // format=pages → PNG per page for the drag-to-position preview
-  if (new URL(req.url).searchParams.get('format') === 'pages') {
-    // Blank a mark only when it has a parseable position — same rule as
-    // generateDoc. Positioned marks are drawn by the UI overlay; unpositioned
-    // ones stay baked in at the template's inline spot, exactly where the
-    // saved PDF puts them.
-    const blanked: Record<string, string> = Object.fromEntries(
-      (['ttd', 'stempel', 'ttd2', 'stempel2', 'logoMitra'] as const)
-        .filter((k) => parsePos(data[k + 'Pos']))
-        .map((k) => [k, ''])
-    );
-    const { pdf } = await generateDoc(def.file, { ...data, ...blanked });
-    const pngs = await pdfToPngs(pdf);
-    return NextResponse.json({
-      pages: pngs.map((b) => 'data:image/png;base64,' + b.toString('base64')),
-    });
-  }
+  const asPages = new URL(req.url).searchParams.get('format') === 'pages';
+  const result = await renderPreview(def, data, asPages);
 
-  const { pdf } = await generateDoc(def.file, data);
-
-  return new NextResponse(new Uint8Array(pdf), {
+  if ('pages' in result) return NextResponse.json({ pages: result.pages });
+  return new NextResponse(new Uint8Array(result.pdf), {
     headers: { 'Content-Type': 'application/pdf' },
   });
 }

@@ -1,6 +1,7 @@
+import 'server-only';
 import { randomBytes } from 'crypto';
-import { auth } from '@/auth';
-import { prisma } from '@/lib/prisma';
+import { auth } from '@/server/auth';
+import { prisma } from '@/server/infra/prisma';
 
 /** 16-byte hex → 32-char random password for freshly provisioned accounts. */
 export function randomPassword(): string {
