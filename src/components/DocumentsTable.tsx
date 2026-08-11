@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
-import { FileDown, FileText, Pencil, Trash2 } from 'lucide-react';
+import { FileDown, FileText, Pencil, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 import type { Document, FolderType, TemplateType } from '@prisma/client';
 import type { ExistingDoc } from './EditorModal';
 
@@ -22,6 +22,8 @@ const DocumentsTable = forwardRef<TableHandle, Props>(function DocumentsTable(
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [sort, setSort] = useState<'createdAt' | 'filename'>('createdAt');
+  const [dir, setDir] = useState<'asc' | 'desc'>('desc');
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const PAGE_SIZE = 10;
@@ -34,6 +36,8 @@ const DocumentsTable = forwardRef<TableHandle, Props>(function DocumentsTable(
           search: searchVal,
           page: String(pageVal),
           pageSize: String(PAGE_SIZE),
+          sort,
+          dir,
           ...(folder ? { folder } : {}),
           ...(activeTemplate ? { template: activeTemplate } : {}),
         });
@@ -55,13 +59,13 @@ const DocumentsTable = forwardRef<TableHandle, Props>(function DocumentsTable(
         setLoading(false);
       }
     },
-    [onCountsChange]
+    [onCountsChange, sort, dir]
   );
 
   useEffect(() => {
     fetchDocs(search, page, activeFolder);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, activeFolder]);
+  }, [page, activeFolder, sort, dir]);
 
   useImperativeHandle(ref, () => ({
     refresh: () => fetchDocs(search, page, activeFolder),
@@ -83,6 +87,31 @@ const DocumentsTable = forwardRef<TableHandle, Props>(function DocumentsTable(
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  /** Clickable column header: same column toggles asc/desc, new column starts
+   *  A→Z for names and newest-first for dates. */
+  function SortHeader({ col, label }: { col: 'createdAt' | 'filename'; label: string }) {
+    const active = sort === col;
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          setPage(1);
+          if (active) setDir(dir === 'asc' ? 'desc' : 'asc');
+          else { setSort(col); setDir(col === 'filename' ? 'asc' : 'desc'); }
+        }}
+        title={`Urutkan ${label}`}
+        className={`inline-flex items-center gap-1 uppercase tracking-wide ${active ? 'text-sky-600' : 'hover:text-slate-800'}`}
+      >
+        {label}
+        {active ? (
+          dir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />
+        ) : (
+          <ArrowDown size={12} className="opacity-25" />
+        )}
+      </button>
+    );
+  }
+
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
       {/* Search bar */}
@@ -102,9 +131,13 @@ const DocumentsTable = forwardRef<TableHandle, Props>(function DocumentsTable(
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
             <tr>
-              <th className="text-left px-4 py-3">Nama Berkas</th>
+              <th className="text-left px-4 py-3">
+                <SortHeader col="filename" label="Nama Berkas" />
+              </th>
               <th className="text-left px-4 py-3">Lokasi Folder</th>
-              <th className="text-left px-4 py-3">Tanggal Diarsip</th>
+              <th className="text-left px-4 py-3">
+                <SortHeader col="createdAt" label="Tanggal Diarsip" />
+              </th>
               <th className="text-left px-4 py-3">Aksi</th>
             </tr>
           </thead>

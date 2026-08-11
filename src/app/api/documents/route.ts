@@ -27,6 +27,9 @@ export async function GET(req: Request) {
   const folder = searchParams.get('folder') as FolderType | null;
   const templateParam = searchParams.get('template') as TemplateType | null;
   const month = searchParams.get('month'); // "YYYY-MM" — filters by createdAt
+  // sort: createdAt (tanggal) | filename (abjad); dir: asc | desc
+  const sort = searchParams.get('sort') === 'filename' ? 'filename' : 'createdAt';
+  const dir = searchParams.get('dir') === 'asc' ? 'asc' : 'desc';
   const page = Math.max(1, Number(searchParams.get('page') ?? '1'));
   const pageSize = Math.min(100, Math.max(1, Number(searchParams.get('pageSize') ?? '10')));
 
@@ -46,7 +49,7 @@ export async function GET(req: Request) {
   const [items, total] = await Promise.all([
     prisma.document.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { [sort]: dir },
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),
