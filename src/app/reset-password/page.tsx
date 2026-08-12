@@ -70,8 +70,24 @@ export default function ResetPasswordPage() {
         </p>
 
         {done ? (
-          <div className="px-4 py-3 rounded-lg bg-green-50 text-green-700 text-sm">
-            Password berhasil diganti.{ctx.forced ? ' Mengalihkan ke login…' : ''}
+          <div className="space-y-4">
+            <div className="px-4 py-3 rounded-lg bg-green-50 text-green-700 text-sm">
+              Password berhasil diganti.{ctx.forced ? ' Mengalihkan ke login…' : ''}
+            </div>
+            {/* Voluntary resets used to dead-end here with no way out; the forced
+                flow auto-redirects but still needs a manual fallback. */}
+            <button
+              type="button"
+              onClick={() => signOut({ callbackUrl: '/login' })}
+              className="w-full bg-sky-600 hover:bg-sky-700 text-white font-semibold py-2 rounded-lg transition-colors"
+            >
+              Keluar &amp; Masuk Ulang
+            </button>
+            {!ctx.forced && (
+              <Link href="/" className="block text-center text-sm text-slate-500 hover:text-slate-700 py-1">
+                Kembali ke Dashboard
+              </Link>
+            )}
           </div>
         ) : (
           <form onSubmit={submit} className="space-y-4">

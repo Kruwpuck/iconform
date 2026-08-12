@@ -110,8 +110,12 @@ const WP_NS = 'http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDr
  */
 function ensureWpNs(xml: string): string {
   if (!xml.includes('<wp:') || xml.includes(`xmlns:wp="${WP_NS}"`)) return xml;
-  return xml.replace(/<w:document\b/, `<w:document xmlns:wp="${WP_NS}"`);
+  return xml.replace(/<w:(document|hdr|ftr)\b/, `<w:$1 xmlns:wp="${WP_NS}"`);
 }
+
+/** Parts a mark tag can live in: the body, or a header/footer — BA Pengujian's
+ *  mitra logo sits in header1.xml, not the body. */
+const MARKED_PARTS = /^word\/(document|header\d*|footer\d*)\.xml$/;
 
 /**
  * Turn the image module's inline drawings into floating "in front of text"
@@ -195,8 +199,9 @@ export async function fillDocx(templateFile: string, data: Record<string, string
   fillBlanks(renderData);
   doc.render(renderData);
   const out = doc.getZip();
-  const body = out.file('word/document.xml');
-  if (body) out.file('word/document.xml', ensureWpNs(floatMarks(body.asText())));
+  for (const part of out.file(MARKED_PARTS) as { name: string; asText(): string }[]) {
+    out.file(part.name, ensureWpNs(floatMarks(part.asText())));
+  }
   return out.generate({ type: 'nodebuffer' }) as Buffer;
 }
 
