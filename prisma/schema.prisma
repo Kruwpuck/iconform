@@ -13,8 +13,6 @@ model User {
   email        String?    @unique
   passwordHash String
   name             String
-  totpSecret       String?
-  twoFactorEnabled Boolean  @default(false)
   mustChangePassword Boolean @default(false)
   createdAt        DateTime @default(now())
   sessions     Session[]

@@ -1,13 +1,8 @@
 import 'server-only';
-import NextAuth, { CredentialsSignin } from 'next-auth';
+import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
-import { verify as totpVerify } from 'otplib';
 import { prisma } from '@/server/infra/prisma';
-
-class TwoFactorRequired extends CredentialsSignin {
-  code = '2FA_REQUIRED';
-}
 
 // ponytail: in-memory, resets on restart, correct only for 1 instance.
 // Upgrade to Redis if >1 replica.
@@ -24,7 +19,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       credentials: {
         username: { label: 'Username' },
         password: { label: 'Password', type: 'password' },
-        totpCode: { label: 'Kode 2FA', type: 'text' },
       },
       authorize: async (credentials) => {
         if (!credentials?.username || !credentials?.password) return null;
@@ -54,21 +48,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        if (user.twoFactorEnabled) {
-          const code = credentials.totpCode ? String(credentials.totpCode).trim() : '';
-          if (!code) throw new TwoFactorRequired();
-          // ponytail: count TOTP failures separately — password success doesn't reset this
-          const result = await totpVerify({ token: code, secret: user.totpSecret! });
-          if (!result.valid) {
-            const cur = attempts.get(key) ?? { n: 0, until: 0 };
-            cur.n += 1;
-            if (cur.n >= 5) { cur.until = Date.now() + 15 * 60 * 1000; cur.n = 0; }
-            attempts.set(key, cur);
-            return null;
-          }
-        }
-
-        // Only clear rate-limit counter after BOTH password + TOTP pass
         attempts.delete(key);
         return {
           id: user.id,

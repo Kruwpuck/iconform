@@ -1,5 +1,5 @@
 import { signOut } from '@/server/auth';
-import { LayoutDashboard, LogOut, FileText, ShieldCheck, KeyRound, ScrollText } from 'lucide-react';
+import { LayoutDashboard, LogOut, FileText, KeyRound, ScrollText } from 'lucide-react';
 import Link from 'next/link';
 import { TEMPLATES } from '@/domain/templates';
 import SidebarShell from '@/ui/layout/SidebarShell';
@@ -49,14 +49,6 @@ export default async function Sidebar() {
             masih hidup kalau URL-nya dibuka langsung. */}
 
         <p className={`text-xs text-blue-400 uppercase tracking-wider px-3 pt-4 pb-1 ${LABEL}`}>Akun</p>
-        <Link
-          href="/settings/2fa"
-          title="Keamanan 2FA"
-          className={`${LINK} text-white/80 hover:bg-blue-800 hover:text-white`}
-        >
-          <ShieldCheck size={14} className="shrink-0" />
-          <span className={LABEL}>Keamanan 2FA</span>
-        </Link>
         <Link
           href="/reset-password"
           title="Ganti Password"

@@ -13,7 +13,7 @@ export async function GET() {
     where: { createdById: admin.id },
     select: {
       id: true, username: true, name: true, email: true,
-      twoFactorEnabled: true, mustChangePassword: true, createdAt: true,
+      mustChangePassword: true, createdAt: true,
     },
     orderBy: { createdAt: 'desc' },
   });

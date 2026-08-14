@@ -11,7 +11,7 @@
 #   ./deploy.sh psql       → open psql shell on the DB
 #   ./deploy.sh status     → show container status
 #
-# Schema changes (e.g. 2FA columns) auto-apply at container boot via the app
+# Schema changes (added or dropped columns) auto-apply at container boot via the app
 # CMD (`prisma db push` + seed). A plain redeploy already migrates.
 set -euo pipefail
 cd "$(dirname "$0")"

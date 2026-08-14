@@ -5,7 +5,7 @@ import { UserPlus, Trash2, Pencil, KeyRound, Copy, Check } from 'lucide-react';
 
 type ManagedUser = {
   id: string; username: string; name: string; email: string | null;
-  twoFactorEnabled: boolean; mustChangePassword: boolean; createdAt: string;
+  mustChangePassword: boolean; createdAt: string;
 };
 
 export default function UsersManager() {
@@ -145,9 +145,6 @@ export default function UsersManager() {
                   <td className="px-4 py-2">
                     <span className="inline-flex gap-1 flex-wrap">
                       {u.mustChangePassword && <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Belum ganti pw</span>}
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${u.twoFactorEnabled ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
-                        2FA {u.twoFactorEnabled ? 'on' : 'off'}
-                      </span>
                     </span>
                   </td>
                   <td className="px-4 py-2">
