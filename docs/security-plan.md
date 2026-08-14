@@ -1,4 +1,10 @@
-# security-plan.md — SimSurat
+# Rencana keamanan
+
+> **Catatan status.** Dokumen ini ditulis lebih awal dalam proyek, waktu sistemnya masih
+> bernama "SimSurat" dan arsitekturnya berbeda. Sebagian isinya sudah tidak berlaku dan
+> ditandai dengan blok **Sudah berubah** di tempatnya masing-masing. Untuk keadaan sistem
+> sekarang, rujuk [architecture.md](architecture.md), [api.md](api.md), dan
+> [setup.md](setup.md).
 
 > Prinsip: internal tool, user sedikit, semua di balik login. Jangan pasang security theater. Pasang yang **benar-benar nutup lubang nyata**, semuanya gratis, setup sekali jalan.
 >
@@ -27,7 +33,20 @@ Yang **bukan** ancaman di sini: multi-tenant data isolation (satu organisasi), D
 Kebocoran kredensial > semua kelas bug lain digabung. Kerjakan ini duluan.
 
 1. **`.gitignore` harus punya:** `.env`, `.env.*`, `*.json` key service account, `*.pem`. Cek `.env.example` sudah ada dan isinya placeholder kosong.
-2. **JSON service account jangan pernah masuk repo.** Sudah base64 di env (`GDRIVE_SERVICE_ACCOUNT_B64`) — bagus. File `key.json` asli: taruh di password manager / brankas, hapus dari disk kerja setelah di-base64.
+2. **Kredensial Google jangan pernah masuk repo.**
+
+   > **Sudah berubah.** Rencana ini menganggap autentikasi Drive memakai service account
+   > lewat `GDRIVE_SERVICE_ACCOUNT_B64`. Variabel itu tidak dibaca kode mana pun lagi.
+   > Sistem sekarang memakai kredensial OAuth akun pengguna
+   > (`GDRIVE_OAUTH_CLIENT_ID`, `GDRIVE_OAUTH_CLIENT_SECRET`,
+   > `GDRIVE_OAUTH_REFRESH_TOKEN`), karena service account tidak punya kuota penyimpanan
+   > di akun Google non-Workspace. Cara mendapatkannya ada di
+   > [setup.md](setup.md) langkah 5 dan 6.
+   >
+   > Yang tetap berlaku: berkas JSON OAuth client yang diunduh dari Google Cloud jangan
+   > ditaruh di dalam folder repo, dan refresh token diperlakukan sebagai rahasia setara
+   > password. Siapa pun yang memegangnya bisa membaca dan menulis seluruh Drive akun itu,
+   > karena scope yang diminta `drive` penuh.
 3. **Scan history Git — gratis:**
    ```bash
    docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest detect -s /repo -v
@@ -54,36 +73,36 @@ Sudah ketutup oleh NextAuth + blueprint, tinggal verifikasi:
 
 **Kebijakan password (gratis, nol dependency):** minimal 12 karakter waktu bikin/ganti user. Cek di seed script dan (nanti) di form ganti password. Tidak usah aturan simbol/angka wajib — panjang lebih ngaruh.
 
-// ponytail: skip 2FA/MFA sekarang. Trigger: dokumen mulai memuat data yang bocornya bikin masalah hukum, atau diminta atasan.
+> **Sudah berubah.** Rencana ini menunda 2FA. 2FA kemudian dibangun (TOTP dengan `otplib`,
+> kolom `totpSecret` dan `twoFactorEnabled`, halaman `/settings/2fa`), lalu **dibongkar
+> lagi** karena syarat wajib mengaktifkannya menghalangi pemakai mengganti password
+> sendiri. Kode, kolom database, dan dependency-nya sudah dibuang seluruhnya.
+>
+> Keadaan sekarang: login memakai username dan password saja, dengan pembatas laju lima
+> kegagalan per username lalu kunci 15 menit. Ganti password mandiri hanya meminta password
+> sekarang dan password baru. Pemicu untuk mempertimbangkan 2FA lagi tetap seperti tertulis
+> di bawah: dokumen mulai memuat data yang kebocorannya berkonsekuensi hukum, atau ada
+> permintaan dari atasan. Kalau nanti dipasang ulang, jangan jadikan syarat wajib untuk
+> mengganti password.
 
 ---
 
-## 3. WAJIB — Stored XSS (lubang paling nyata di aplikasi ini)
+## 3. Stored XSS
 
-Alurnya: user ngetik di `contenteditable` → HTML mentah disimpan ke `Document.contentHtml` → dashboard/editor render ulang pakai `dangerouslySetInnerHTML`. Siapa pun yang bisa login bisa nitip `<img src=x onerror=...>` yang jalan di browser admin lain.
-
-**Fix, sekali pasang:**
-
-```bash
-npm i isomorphic-dompurify
-```
-
-Sanitasi **di server**, waktu POST/PUT — bukan cuma di client (client bisa dilewati dengan curl):
-
-```ts
-// src/lib/sanitize.ts
-import DOMPurify from 'isomorphic-dompurify';
-
-export const sanitizeDocHtml = (html: string) =>
-  DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: ['div','p','span','br','b','strong','i','em','u','ul','ol','li',
-                   'table','thead','tbody','tr','td','th','img','h1','h2','h3','hr'],
-    ALLOWED_ATTR: ['class','style','data-field','data-logo-slot','src','alt','colspan','rowspan'],
-    ALLOWED_URI_REGEXP: /^data:image\/(png|jpeg|jpg|gif|webp);base64,/i, // logo base64 lolos, http/js: ditolak
-  });
-```
-
-Panggil di `POST /api/documents` dan `PUT /api/documents/[id]` sebelum simpan ke DB. Satu baris, nutup seluruh kelas bug.
+> **Sudah berubah, dan lubangnya hilang karena arsitekturnya berganti.** Bagian ini
+> menganggap pemakai mengetik di `contenteditable`, HTML mentahnya disimpan ke
+> `Document.contentHtml`, lalu dirender ulang dengan `dangerouslySetInnerHTML`. Tidak ada
+> lagi yang seperti itu: `contenteditable` dan `dangerouslySetInnerHTML` tidak muncul sama
+> sekali di `src/`. Pemakai mengisi input formulir biasa, dan `contentHtml` sekarang
+> menyimpan `JSON.stringify(data)`, bukan HTML. Nama kolomnya warisan.
+>
+> Nilai formulirnya tidak pernah dirender sebagai HTML. Yang dilakukan sistem adalah
+> menyisipkannya sebagai teks ke dalam XML DOCX lewat docxtemplater. Karena itu
+> `isomorphic-dompurify` tidak dipasang, dan `src/lib/sanitize.ts` yang dijanjikan di sini
+> tidak pernah ada. Folder `src/lib/` sendiri sudah tidak ada lagi.
+>
+> Yang **masih berlaku** dari bagian ini adalah validasi unggahan logo di bawah, dan itu
+> sudah diterapkan di `src/domain/validate.ts` (`isValidLogo`).
 
 **Validasi upload logo (di server, bukan cuma `accept="image/*"`):**
 - `logoBase64` harus match `^data:image\/(png|jpeg|jpg|webp);base64,` — tolak SVG (SVG bisa bawa script).
@@ -250,10 +269,10 @@ Cetak, centang satu-satu:
 
 | Dilewati | Tambah kalau |
 |---|---|
-| 2FA / MFA | Data sensitif bertambah, atau diminta compliance |
+| 2FA / MFA | Data sensitif bertambah, atau diminta compliance. **Catatan:** sempat dipasang, lalu dibongkar; lihat blok di bagian 2 |
 | CSP ketat | Aplikasi jadi public-facing |
 | WAF (Cloudflare dll) | Terekspos ke internet publik dengan traffic tidak dikenal |
-| Audit log ke DB (tabel terpisah) | Ada pertanyaan "siapa hapus dokumen ini" yang tidak terjawab stdout |
+| ~~Audit log ke DB (tabel terpisah)~~ | **Sudah dipasang.** Tabel `AuditLog` mencatat tujuh jenis tindakan dengan snapshot nama pelaku, dan halaman Log Aktivitas menampilkan 200 entri terakhir. Perlu dicatat log itu terbuka untuk semua pengguna yang login, bukan hanya admin |
 | RBAC / cek `createdById` | Muncul role kedua (non-admin) |
 | Enkripsi kolom DB | Dokumen mulai memuat data pribadi yang diatur regulasi |
 | Secret manager (Vault/GCP SM) | Lebih dari 1 server, atau >3 orang punya akses server |

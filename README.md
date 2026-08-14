@@ -1,166 +1,84 @@
 # PDL FORM
 
-Sistem pembuatan dan pengarsipan surat untuk **PLN Icon Plus SBU Regional Jawa
-Barat**. Petugas mengisi form di web, sistem mengisi master DOCX resmi,
-mengonversinya ke PDF, menempelkan tanda tangan + stempel hasil unggahan, lalu
-mengarsipkan kedua berkas ke Google Drive sambil mencatat metadatanya di
-database.
+Sistem pembuatan dan pengarsipan surat untuk **PLN Icon Plus SBU Regional Jawa Barat**.
+Petugas mengisi formulir di web, sistem mengisi master DOCX resmi, mengonversinya ke PDF,
+menempelkan tanda tangan dan stempel hasil unggahan, lalu mengarsipkan kedua berkas ke
+Google Drive sambil mencatat metadatanya di Postgres.
 
-## Cara kerja
+## Yang bisa dilakukan sistem ini
 
-```
-form (browser)
-  → docxtemplater mengisi {tag} di master .docx    (templates/docx/*.docx)
-  → LibreOffice headless mengonversi .docx → .pdf
-  → pdf-lib menempelkan ttd/stempel di posisi hasil geser pada editor
-  → dua berkas (.docx + .pdf) diunggah ke Google Drive
-  → metadata (nama berkas, folder, pemilik, tanggal) disimpan di Postgres
-```
-
-Catatan penting soal tanda tangan/stempel: pada **PDF**, posisi hasil geser di
-editor benar-benar dipakai — markanya diblanking dari body lalu ditempel ulang
-oleh pdf-lib di koordinat itu. Pada **DOCX**, markanya tetap ditanam inline di
-tempat template ("in front of text" / anchor floating) supaya Word yang
-membukanya tetap merapikan tata letak sendiri; posisi geser sengaja **tidak**
-berlaku di DOCX. Lihat komentar di `src/server/infra/docxgen.ts`.
+- Membuat surat dari tujuh master resmi dengan mengisi formulir, tanpa menyentuh Word.
+- Menghasilkan dua berkas sekaligus per surat, satu PDF siap edar dan satu DOCX yang masih
+  bisa disunting.
+- Menempatkan tanda tangan, stempel, dan logo mitra dengan menggeser dan mengubah ukurannya
+  langsung di atas pratinjau halaman.
+- Mengarsipkan berkasnya ke folder Google Drive yang berbeda sesuai jenis suratnya, otomatis.
+- Menyarankan nomor surat dari satu spreadsheet, dan menyarankan nama berkas dari isi
+  formulir.
+- Menelusuri arsip lewat pencarian nama, penyaringan jenis surat, dan riwayat per bulan yang
+  mengikuti tanggal surat, bukan tanggal pembuatannya.
+- Mengunduh ulang PDF atau DOCX kapan saja. Berkasnya dihasilkan ulang dari data formulir,
+  sehingga perbaikan pada master ikut sampai ke surat lama.
+- Mencatat siapa membuat, mengubah, dan menghapus apa di log aktivitas.
+- Mengelola akun petugas: admin membuat akun, sistem memberi password sekali pakai, pemegang
+  akun wajib menggantinya saat login pertama.
 
 ## Jenis surat
 
-Delapan master di `templates/docx/`: Surat Tugas, BAI (Instalasi–Aktivasi),
-BAKL (Kendala Lapangan), BAP, BAST, BA Pengujian, NODIN, dan UID Jabar.
+Tujuh master di `templates/docx/`.
 
-## Struktur folder
+| Jenis | Berkas master | Folder arsip |
+|---|---|---|
+| Surat Tugas | `SURAT_TUGAS.docx` | Surat Tugas |
+| BAI (BAI-BAA) | `BAI.docx` | Berita Acara |
+| BAI UID JABAR | `UID_JABAR.docx` | Berita Acara |
+| BAKL (Kendala Lapangan) | `BAKL.docx` | Berita Acara |
+| BAP | `BAP.docx` | Berita Acara |
+| BAST | `BAST.docx` | Berita Acara |
+| BA Pengujian | `BA_PENGUJIAN.docx` | Berita Acara |
 
-```
-src/
-├─ app/         routing Next.js App Router saja — page & route handler tipis,
-│                mendelegasikan ke server/services
-├─ ui/          komponen React (sidebar, tabel dokumen, editor form+preview)
-├─ domain/      logika murni, tanpa I/O — aman diimpor dari browser maupun
-│                server (mis. definisi template, validasi input)
-└─ server/
-   ├─ auth.ts        konfigurasi NextAuth
-   ├─ services/      orkestrasi use-case (buat/ubah/hapus dokumen, preview,
-   │                  rebuild-untuk-download) — dipanggil oleh route handler
-   └─ infra/         Prisma, Google Drive, Google Sheets, pipeline docxgen
-```
-
-Arah dependensi satu arah: `app` → `services` → `infra`; siapa pun boleh
-mengimpor `domain`, tapi `domain` tidak mengimpor apa pun dari `server`
-maupun `ui`. Setiap file di `server/**` memuat `import 'server-only'` di
-baris pertama — kalau ada komponen klien tidak sengaja mengimpornya, build
-Next.js gagal dengan pesan jelas, bukan diam-diam ikut ke bundle browser.
-
-`templates/`, `prisma/`, `certs/`, `public/` tetap di root: dirujuk langsung
-lewat `process.cwd()` (`docxgen.ts`) dan disalin apa adanya oleh `Dockerfile`.
-
-`scripts/` sebagian besar berisi operasi sekali-pakai atas file master DOCX
-(perbaikan struktur OOXML) — bukan kode aplikasi. `urutkan_ppr.py` merapikan
-urutan elemen `pPr` sesuai skema Word, `satukan_mark.py` menyatukan pasangan
-tanda tangan+stempel jadi satu paragraf; keduanya idempoten dan aman
-dijalankan ulang kalau master DOCX berubah lagi.
-
-## Prasyarat
-
-- **Ubuntu / Linux server**: Docker Engine + Compose plugin (`apt install docker.io docker-compose-plugin`)
-- **Windows**: [Docker Desktop](https://www.docker.com/products/docker-desktop/) (sudah termasuk Compose)
+Ada berkas `NODIN.docx` di folder yang sama, tapi jenis surat itu tidak aktif dan tidak
+muncul di antarmuka. Alasannya dijelaskan di [docs/architecture.md](docs/architecture.md).
 
 ## Menjalankan
 
-Sama di Ubuntu maupun Windows:
-
 ```bash
-cp .env.example .env   # opsional untuk coba-coba; wajib untuk produksi
-# edit .env — minimal isi AUTH_SECRET, POSTGRES_PASSWORD, ADMIN_PASSWORD
-
+cp .env.example .env      # lalu isi nilainya
 docker compose up -d --build
 ```
 
-Aplikasi jalan di **http://localhost:3000** — login: `admin` / `admin123` (default).
+Buka **http://localhost**, porta 80 lewat Caddy. Login memakai `ADMIN_USERNAME` dan
+`ADMIN_PASSWORD` yang Anda isi di `.env`, lalu sistem meminta Anda menggantinya.
 
-`.env` **opsional** — tanpa itu aplikasi tetap jalan dengan nilai default aman.
-Wajib diisi sebelum dipakai produksi sungguhan.
+Perintah di atas hanya berjalan penuh kalau `.env` sudah terisi, terutama bagian Google
+Drive. Tanpa itu aplikasi tetap menyala dan pratinjau tetap bekerja, tapi penyimpanan surat
+gagal karena tidak ada folder tujuan. Langkah lengkapnya, mulai dari membuat project Google
+Cloud sampai mendapatkan setiap nilai `.env`, ada di **[docs/setup.md](docs/setup.md)**.
 
-## Variabel lingkungan
+## Dokumentasi
 
-Salin `.env.example` → `.env` lalu isi:
+| Dokumen | Isi |
+|---|---|
+| **[docs/setup.md](docs/setup.md)** | pemasangan dari nol: Google Cloud, OAuth, folder Drive, tiap baris `.env`, sampai surat pertama tersimpan |
+| **[docs/architecture.md](docs/architecture.md)** | susunan sistem, aturan lapisan, model data, dan pipeline DOCX ke PDF |
+| **[docs/api.md](docs/api.md)** | sepuluh endpoint HTTP beserta auth, body, response, dan semua kode galatnya |
+| **[docs/operations.md](docs/operations.md)** | deploy, backup, mengubah master DOCX, dan kegagalan yang perlu dikenali |
+| **[docs/security-plan.md](docs/security-plan.md)** | model ancaman dan daftar pengerasan |
 
-| Variabel | Wajib? | Catatan |
-|---|---|---|
-| `AUTH_SECRET` | Hanya prod | `openssl rand -base64 32`. Di Windows tanpa WSL: `docker run --rm alpine sh -c "apk add -q openssl && openssl rand -base64 32"` |
-| `POSTGRES_PASSWORD` | Hanya prod | Default `iconform_dev` cukup untuk dev |
-| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | Hanya prod | Default `admin` / `admin123` |
-| `GDRIVE_OAUTH_*` | Opsional | Aplikasi tetap jalan dan preview tetap berfungsi tanpa ini. Upload ke Drive aktif begitu diisi. |
-| `GDRIVE_FOLDER_*_ID` | Opsional | Satu folder ID per jenis dokumen |
+Peta lengkapnya di [docs/README.md](docs/README.md).
 
-**Setup Google Drive**: ambil refresh token lewat
-`node scripts/get-refresh-token.mjs <oauth-client.json>`, lalu isi
-`GDRIVE_OAUTH_*` dan `GDRIVE_FOLDER_*_ID` di `.env`.
+## Tumpukan teknologi
 
-## Root CA korporat di image
-
-`Dockerfile` mempercayai root CA **Trend Micro Web Security Cloud**
-(`certs/tmws-root-ca.crt`) supaya `npm`/`apk` bisa fetch di balik proxy
-jaringan ini yang membelah TLS. Konsekuensinya: lalu lintas TLS *dari dalam
-proses build* bisa dibaca proxy tersebut — bukan lalu lintas aplikasi saat
-berjalan. Kalau build dijalankan di luar jaringan ini, baris 7–9 Dockerfile
-(`COPY certs/…`, `RUN cat …`, `ENV NODE_EXTRA_CA_CERTS=…`) bisa dihapus.
-
-## Operasional (Ubuntu/production)
-
-- Set `AUTH_TRUST_HOST=true` (sudah default di `.env.example`) kalau di
-  belakang reverse proxy (Caddy/nginx men-terminate TLS → port 3000).
-- `restart: unless-stopped` — app dan DB bertahan setelah reboot.
-- Data persisten di volume Docker `pgdata` (Postgres) dan `docdata` (berkas
-  sementara).
-
-## Dev di Windows
-
-Alur prod-only — edit kode lokal, lalu rebuild untuk tes:
-
-```bash
-docker compose up -d --build
-```
-
-Tidak ada container hot-reload. Line ending CRLF ditangani `.gitattributes`
-(LF dipaksakan).
-
-## Perintah operasional
-
-Pakai `deploy.ps1` (Windows) atau `deploy.sh` (Linux):
-
-```bash
-./deploy.ps1              # git pull, rebuild, restart (default)
-./deploy.ps1 rebuild      # rebuild image + restart, tanpa git pull
-./deploy.ps1 up           # start container tanpa rebuild
-./deploy.ps1 down         # stop semua
-./deploy.ps1 logs         # tail log aplikasi
-./deploy.ps1 migrate      # terapkan schema ke DB (prisma db push)
-./deploy.ps1 seed         # jalankan seed script di container
-./deploy.ps1 psql         # buka shell psql ke DB
-./deploy.ps1 status       # status container
-```
-
-Perintah manual setara:
-
-```bash
-# Lihat log
-docker compose logs -f iconform-app
-
-# Restart app saja (setelah ubah config)
-docker compose restart iconform-app
-
-# Stop semua (data tetap)
-docker compose down
-
-# Reset total — MENGHAPUS semua data dan DB
-docker compose down -v
-```
+Next.js 15 App Router, React 19, TypeScript, Prisma dan PostgreSQL, NextAuth v5, Tailwind
+CSS. Pembuatan dokumen memakai docxtemplater untuk mengisi master DOCX, LibreOffice headless
+untuk mengonversinya ke PDF, pdf-lib untuk menempelkan tanda tangan, dan poppler-utils untuk
+membuat pratinjau. Semuanya berjalan di satu image Docker bersama Postgres dan Caddy.
 
 ## Test
-
-Satu-satunya test di repo, atas logika murni di `src/domain/templates.ts`:
 
 ```bash
 npm test
 ```
+
+Menguji logika murni di `src/domain/templates.ts`: penamaan berkas otomatis dan penerjemahan
+tanggal ke bentuk kata.
