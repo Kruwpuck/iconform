@@ -1,3 +1,9 @@
 node_modules
 .next
 .git
+
+# Secrets must never enter the build context: Dockerfile does `COPY . .`, so an
+# .env here would be baked into the image layer.
+.env
+.env.*
+!.env.example

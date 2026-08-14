@@ -26,8 +26,8 @@ assert('ST nomor', ST.suggestName({ nomor: '052101/STG/008/SUJBBICON+/2026' }), 
 
 // BAI — noPA preferred, serviceId fallback
 assert('BAI empty→null', BAI.suggestName({}), null);
-assert('BAI noPA', BAI.suggestName({ noPA: 'A121303002621' }), 'BAI_A121303002621');
-assert('BAI serviceId fallback', BAI.suggestName({ serviceId: '121601001669' }), 'BAI_121601001669');
+assert('BAI noPA', BAI.suggestName({ noPA: 'A121303002621' }), 'Surat_BAI_A121303002621');
+assert('BAI serviceId fallback', BAI.suggestName({ serviceId: '121601001669' }), 'Surat_BAI_121601001669');
 
 // UID_JABAR
 assert('UID empty→null', UID.suggestName({}), null);

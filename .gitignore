@@ -21,7 +21,6 @@ Thumbs.db
 .claude/
 /scratchpad/
 /scripts/
-/docs/
 
 # Database dumps — may contain real customer data
 *.sql
